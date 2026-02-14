@@ -191,7 +191,7 @@ class Persons():
         """
         print_debug = True
         print(f"------ search_generically() for '{search_str}' ------") if (print_debug == True) else False
-        search_words = search_str.split(" ")
+        search_words = search_str.lower().split(" ")
         matched = []
         if (role_key):
             role_specific_persons = [x for x in self.persons if (role_key in x.role)]
@@ -199,7 +199,7 @@ class Persons():
             role_specific_persons = self.persons
         for person in role_specific_persons:
             # Get all string attributes
-            person_values = [v for v in vars(person).values() if isinstance(v, str)]
+            person_values = [v.lower() for v in vars(person).values() if isinstance(v, str)]
             best_ratio = 0
             
             word_scores = []
@@ -236,7 +236,7 @@ class Persons():
     def search_for_attr(self, search_attr, search_accuracy=0.9):
         print_debug = True
         print(f"------ search_for_attr() for '{search_attr}'------") if (print_debug == True) else False
-        matches = difflib.get_close_matches(search_attr, self._person_attributes, n=1, cutoff=search_accuracy)
+        matches = difflib.get_close_matches(search_attr.lower(), self._person_attributes, n=1, cutoff=search_accuracy)
         if (not matches):
             print(f"Attribute '{search_attr}' not found!")
         else:
@@ -262,10 +262,10 @@ class Persons():
             matched_attr_head = self.search_for_attr(search_attr)
             if (matched_attr_head):
                 for person in role_specific_persons:
-                    person_values = [v for x,v in vars(person).items() if (x == matched_attr_head)]
-                    match_attr = difflib.get_close_matches(search_str, person_values, n=1, cutoff=search_accuracy)
+                    person_values = [v.lower() for x,v in vars(person).items() if (x == matched_attr_head)]
+                    match_attr = difflib.get_close_matches(search_str.lower(), person_values, n=1, cutoff=search_accuracy)
                     if (match_attr):
-                        best_ratio = max(difflib.SequenceMatcher(None, search_str, val).ratio() for val in person_values)
+                        best_ratio = max(difflib.SequenceMatcher(None, search_str.lower(), val).ratio() for val in person_values)
                         matched.append((person, best_ratio))
                 # Sort persons by similarity (highest first)
                 matched.sort(key=lambda x: x[1], reverse=True)
