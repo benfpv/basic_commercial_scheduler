@@ -20,3 +20,4 @@ class Functions_Csv():
         print(f"Lines Cleaned [{lines_cleaned_len}]:") if (print_debug == True) else False
         [print(f"- {x}") for x in lines_cleaned] if (print_debug == True) else False
         return header_cleaned, lines_cleaned_len, lines_cleaned
+        

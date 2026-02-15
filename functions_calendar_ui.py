@@ -3,7 +3,6 @@ from zoneinfo import ZoneInfo
 
 
 class Functions_Calendar_Ui:
-    # Vibe Coded
     def __init__(self, current_datetime):
         if current_datetime.tzinfo is None:
             raise ValueError("current_datetime must be timezone-aware")
@@ -11,11 +10,33 @@ class Functions_Calendar_Ui:
         self.local_tz = current_datetime.tzinfo
         self.utc_tz = ZoneInfo("UTC")
 
+    # -------- Prompt User to Select Timezone --------
+    def select_timezone(self):
+        example_timezones = [
+            "UTC", "America/Toronto", "America/New_York", "Europe/London",
+            "Asia/Tokyo", "Australia/Sydney", "Europe/Paris", "America/Los_Angeles"
+        ]
+        print("Select your timezone from the list (or press Enter to use the system's timezone):")
+        print("Example timezones:", ", ".join(example_timezones))
+        tz_input = input(f"Enter timezone (e.g., 'Europe/London'): ").strip()
+
+        if not tz_input:  # If blank, use system timezone (tzinfo of current_datetime)
+            tz_input = self.local_tz.key
+            print(f"Using system timezone: {tz_input}")
+
+        try:
+            tz = ZoneInfo(tz_input)
+            self.local_tz = tz
+            print(f"Timezone set to: {self.local_tz}")
+        except Exception as e:
+            print(f"Invalid timezone entered: {tz_input}. Defaulting to system timezone.")
+            self.local_tz = self.current_datetime.tzinfo
+            print(f"Using system timezone: {self.local_tz}")
+
     # -------- Print calendar month --------
     def print_month(self, year, month):
         print(f"\n      {datetime(year, month, 1):%B %Y}")
         print("Mo Tu We Th Fr Sa Su")
-
         first_day = datetime(year, month, 1)
         start_weekday = first_day.weekday()  # Monday=0
 
@@ -27,7 +48,6 @@ class Functions_Calendar_Ui:
         num_days = (next_month - first_day).days
 
         print("   " * start_weekday, end="")
-
         for day in range(1, num_days + 1):
             print(f"{day:2}", end=" ")
             if (start_weekday + day) % 7 == 0:
@@ -103,6 +123,9 @@ class Functions_Calendar_Ui:
         slots = []
 
         print("\nSelect multiple time slots. Type 'done' when finished.\n")
+
+        # Prompt user to select timezone before starting slot selection
+        self.select_timezone()
 
         while True:
             user_choice = input("Add a new slot? (y/done): ").lower()

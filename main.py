@@ -10,21 +10,22 @@ path_to_global_meetings_data = "data\\global_meetings.csv"
 path_to_person_data = "data\\person.csv"
 path_to_person_availability_data = "data\\person_availability.csv"
 path_to_person_commitments_data = "data\\person_commitments.csv"
+path_to_person_meetings_data = "data\\person_meetings.csv"
 
-default_timezone = ZoneInfo("UTC")
-current_datetime = datetime.now(default_timezone)
+#current_timezone = ZoneInfo("UTC")
+current_timezone = ZoneInfo("America/Toronto")
 
 ### Debug ###
 # Make more efficient 'creation of person' - only create if necessary? In case of many many persons.
-# Consider possible commitments_locked_in or similar, after commitment is made, but before actual meeting, in case of urgent cancels etc.
-# Do convert commitments to meetings etc.
+# Consider meetings in-progress recording as well!
+# Convert data structures to pd?
 
 def main():
     print("============================== Create Objects ==============================")
-    persons = Persons(path_to_global_commitments_data, path_to_global_meetings_data, path_to_person_data, path_to_person_availability_data, path_to_person_commitments_data)
+    persons = Persons(current_timezone, path_to_global_commitments_data, path_to_global_meetings_data, path_to_person_data, path_to_person_availability_data, path_to_person_commitments_data, path_to_person_meetings_data)
     
     print("============================== Init UI ==============================")
-    Functions_Cmd_Ui(persons, current_datetime)
+    Functions_Cmd_Ui(persons, True)
     
 if (__name__ == "__main__"):
     main()
