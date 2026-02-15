@@ -2,7 +2,7 @@
 import os
 import tempfile
 import difflib
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from copy import deepcopy
 
@@ -10,7 +10,7 @@ from functions_csv import *
 from classes.person import *
 
 class Persons():
-    def __init__(self, current_timezone, path_to_global_commitments_data, path_to_global_meetings_data, path_to_person_data, path_to_person_availability_data, path_to_person_commitments_data, path_to_person_meetings_data):
+    def __init__(self, path_to_global_commitments_data, path_to_global_meetings_data, path_to_person_data, path_to_person_availability_data, path_to_person_commitments_data, path_to_person_meetings_data, current_timezone="UTC"):
         """
         Persons creates, stores, and operates on a collection of Person objects.
         Intended to be all-in-one structure containing all person objects, but only loading/writing as needed per operation.
@@ -18,7 +18,7 @@ class Persons():
         - search for & store specific persons in working memory to operate on.
         - print/create/infer/save scheduling variables (e.g., availabilities, commitments, meetings)
         """
-        ### Static Variables ###
+        ### Static (or LTM) Variables ###
         # Paths
         self.path_to_global_commitments_data = path_to_global_commitments_data
         self.path_to_global_meetings_data = path_to_global_meetings_data
@@ -39,10 +39,10 @@ class Persons():
         
         ### Dynamic Variables / Working Memories ###
         # Datetime
-        self.current_timezone = current_timezone
+        self.current_timezone = ZoneInfo(current_timezone)
         self.current_datetime = datetime.now(self.current_timezone)
-        self.meeting_buffer = 1 # in hours, how many hours in advance do we consider a meeting to have happened?
         # Working Memory / Selecteds
+        self.active_meetings = [] # Meetings that are currently active
         self.search_results = [] # one or more persons (i.e., person objects) are stored here after any search method.
         self.selected_persons = [] # selected users are stored here as necessary so they can be operated on using inherent functions.
         self.selected_intersections = [] # intersections working memory
@@ -263,6 +263,10 @@ class Persons():
                 self.search_results = matched
         return matched
     
+    def print_global_active_meetings(self):
+        print(f"------ print_global_active_meetings() ------") if (self.print_debug == True) else False
+        print(f"Global Active Meetings: [{len(self.active_meetings)}]: ")
+        [print(f"- {x}") for x in self.active_meetings]
     def print_global_commitments(self):
         print(f"------ print_global_commitments() ------") if (self.print_debug == True) else False
         print(f"Global Commitments [{len(self.commitments)}]: ")
@@ -333,25 +337,34 @@ class Persons():
         self.selected_intersections = []
         return intersections
         
+    def _process_write_datetimes(self, source_datetimes_list, target_datetimes_working_memory, path_to_datetimes_csv="", sort_working_memory=True):
+        print(f"------ _process_write_datetimes() ------") if (self.print_debug == True) else False
+        ### Process Crossed-Over (Filter Out Identicals)
+        source_datetimes_list_len = len(source_datetimes_list)
+        for i, this_datetime in enumerate(source_datetimes_list):
+            print(f"Datetime {i+1}/{source_datetimes_list}: {this_datetime}") if (self.print_debug == True) else False
+            a_line = f"{this_datetime[0]}, {this_datetime[1]}, {this_datetime[2]}\n"
+            if (this_datetime not in target_datetimes_working_memory):
+                # Append & Write
+                target_datetimes_working_memory.append(this_datetime)
+                if (path_to_datetimes_csv):
+                    with open(path_to_datetimes_csv, "a") as f:
+                        f.write(a_line)
+                    print(f"- Global Datetime Created: {this_datetime}") if (self.print_debug == True) else False
+            else:
+                if (path_to_datetimes_csv):
+                    print(f"- Global Datetime Already Exists (Not Created): {this_datetime}") if (self.print_debug == True) else False
+        if (sort_working_memory):
+            self._sort_datetimes_by_start_datetime(target_datetimes_working_memory)
+        
     def create_intersecting_commitments(self, remove_availability=False):
         FMT = "%Y-%m-%d %H:%M:%S%z"
         print(f"------ create_intersecting_commitments() ------") if (self.print_debug == True) else False
         # Create Global Commitments (identical to create_meeting)
-        intersections_len = len(self.selected_intersections)
-        for i, intersection in enumerate(self.selected_intersections):
-            print(f"Intersection {i+1}/{intersections_len}: {intersection}") if (self.print_debug == True) else False
-            a_line = f"{intersection[0]}, {intersection[1]}, {intersection[2]}\n"
-            if (intersection not in self.commitments):
-                # Append & Write
-                self.commitments.append(intersection)
-                with open(self.path_to_global_commitments_data, "a") as f:
-                    f.write(a_line)
-                print(f"- Global Datetime Created: {intersection}") if (self.print_debug == True) else False
-            else:
-                print(f"- Global Datetime Already Exists (Not Created): {intersection}") if (self.print_debug == True) else False
-        self._sort_datetimes_by_start_datetime(self.commitments)
+        self._process_write_datetimes(self.selected_intersections, self.commitments, self.path_to_global_commitments_data)
         
         # Create Person-Wise Commitments
+        intersections_len = len(self.selected_intersections)
         for i, intersection in enumerate(self.selected_intersections):
             print(f"Intersection {i+1}/{intersections_len}: {intersection}") if (self.print_debug == True) else False
             id_index = 0
@@ -400,7 +413,8 @@ class Persons():
         
         ### Gather evidence whether the meeting occurred; who attended, etc.
         # By Datetime Crossover Current Datetime
-        crossedover = []
+        active_meetings = [] # Currently in session
+        crossedover = [] # Simply the current datetime has crossed over commmitment start time
         commitments_len = len(self.commitments)
         for i, commitment in enumerate(self.commitments):
             print(f"Commitment {i+1}/{commitments_len}: {commitment}") if (self.print_debug == True) else False
@@ -414,27 +428,23 @@ class Persons():
             datetime_start_utc = datetime.strptime(commitment[datetime_start_index], FMT)
             datetime_end_utc = datetime.strptime(commitment[datetime_end_index], FMT)
             
-            if (self.current_datetime >= datetime_start_utc):
+            if (datetime_start_utc <= self.current_datetime <= datetime_end_utc):
+                active_meetings.append(deepcopy(commitment))
+            if (datetime_start_utc <= self.current_datetime) and (datetime_end_utc < self.current_datetime):
                 crossedover.append(deepcopy(commitment))
         
+        active_meetings_len = len(active_meetings)
+        print(f"Meetings Detected Active [{active_meetings_len}]: ") if (self.print_debug == True) else False
+        [print(x) for x in active_meetings] if (self.print_debug == True) else False
         crossedover_len = len(crossedover)
-        print(f"Meetings Detected Crossing-Over Current Datetime [{crossedover_len}]: ")
-        [print(x) for x in crossedover]
+        print(f"Meetings Detected Crossed-Over [{crossedover_len}]: ") if (self.print_debug == True) else False
+        [print(x) for x in crossedover] if (self.print_debug == True) else False
         
-        ### Process Crossed-Over
-        # Create Global Commitments (nearly identical to create_meeting)
-        for i, crossover in enumerate(crossedover):
-            print(f"Crossover {i+1}/{crossedover_len}: {crossover}") if (self.print_debug == True) else False
-            a_line = f"{crossover[0]}, {crossover[1]}, {crossover[2]}\n"
-            if (crossover not in self.meetings):
-                # Append & Write
-                self.meetings.append(crossover)
-                with open(self.path_to_global_meetings_data, "a") as f:
-                    f.write(a_line)
-                print(f"- Global Datetime Created: {crossover}") if (self.print_debug == True) else False
-            else:
-                print(f"- Global Datetime Already Exists (Not Created): {crossover}") if (self.print_debug == True) else False
-        self._sort_datetimes_by_start_datetime(self.meetings)
+        ### Process Active Meetings (Filter Out Identicals)
+        self._process_write_datetimes(active_meetings, self.active_meetings)
+        
+        ### Process Crossed Over (Filter Out Identicals)
+        self._process_write_datetimes(crossedover, self.meetings, self.path_to_global_meetings_data)
         
         # Create Person-Wise Meetings
         for i, crossover in enumerate(crossedover):
@@ -482,7 +492,7 @@ class Persons():
                 print(f"- Commitments (After) {i+1}/{target_persons_len} [{len(commitments)}]: {commitments}") if (self.print_debug == True) else False
                 print(f"- Meetings (After) {i+1}/{target_persons_len} [{len(meetings)}]: {meetings}") if (self.print_debug == True) else False
                 
-        #self.print_global_commitments()
+        self.print_global_commitments()
         self.print_global_meetings()
         return
         

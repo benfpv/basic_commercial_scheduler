@@ -12,10 +12,12 @@ path_to_person_availability_data = "data\\person_availability.csv"
 path_to_person_commitments_data = "data\\person_commitments.csv"
 path_to_person_meetings_data = "data\\person_meetings.csv"
 
-#current_timezone = ZoneInfo("UTC")
-current_timezone = ZoneInfo("America/Toronto")
+current_timezone = "UTC"
+#current_timezone = "America/Toronto"
 
 ### Debug ###
+# Change removal of timeslots to be less free - remove by chunks/slot instead of specific start_datetime -> end_datetime.
+# Better manage timezones - if current timezone is Toronto, print Toronto instead of UTC which is the management timezone.
 # Make more efficient 'creation of person' - only create if necessary? In case of many many persons.
 # Consider meetings in-progress recording as well!
 # Convert data structures to pd?
@@ -26,10 +28,10 @@ current_timezone = ZoneInfo("America/Toronto")
 
 def main():
     print("============================== Create Objects ==============================")
-    persons = Persons(current_timezone, path_to_global_commitments_data, path_to_global_meetings_data, path_to_person_data, path_to_person_availability_data, path_to_person_commitments_data, path_to_person_meetings_data)
+    persons = Persons(path_to_global_commitments_data, path_to_global_meetings_data, path_to_person_data, path_to_person_availability_data, path_to_person_commitments_data, path_to_person_meetings_data, current_timezone)
     
     print("============================== Init UI ==============================")
-    Functions_Cmd_Ui(persons, True)
+    Functions_Cmd_Ui(persons, print_debug=False, clear_console=True)
     
 if (__name__ == "__main__"):
     main()

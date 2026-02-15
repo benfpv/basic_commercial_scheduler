@@ -33,7 +33,7 @@ class Person():
         
         self.print_debug = True
         
-        # Load Data (e.g., Availability, Lessons History, Balance History)
+        ### Load Static (or LTM) Variables (e.g., Availability, Lessons History, Balance History)
         self.availability = self._load_data(self.path_to_person_availability_data)
         self.commitments = self._load_data(self.path_to_person_commitments_data)
         self.meetings = self._load_data(self.path_to_person_meetings_data)
