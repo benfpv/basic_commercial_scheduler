@@ -19,6 +19,10 @@ current_timezone = ZoneInfo("America/Toronto")
 # Make more efficient 'creation of person' - only create if necessary? In case of many many persons.
 # Consider meetings in-progress recording as well!
 # Convert data structures to pd?
+# Create availability - prevent past detetimes. Sort out logic for commitment -> meeting.
+# Create logic for student/teacher preferences and auto-grouping to enable auto-scheduling. Only manual input should be availability.
+# Change UI to only need to select, instead of actually type e.g., role, dates, etc.
+# Change calendar UI to be more intuitive and easy to use, even in cmd.
 
 def main():
     print("============================== Create Objects ==============================")
