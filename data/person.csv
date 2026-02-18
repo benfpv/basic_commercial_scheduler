@@ -10,13 +10,13 @@ student, Sonic, Hedgehog, 44, 21, 2026-02-28, 2007-06-23, 99 Green Hill Zone, +1
 student, Tails, Prower, 45, 21, 2026-02-28, 2010-03-07, 99 Green Hill Zone, +1 555-333-2323, tails@sega.fake, 75, 0, America/Denver,
 student, Steve, Minecraft, 46, 22, 2026-03-01, 2006-05-09, 10 Blocky Avenue, +1 555-444-1111, steve@minecraft.fake, 65, 45, America/Phoenix, building projects
 student, Alex, Minecraft, 47, 22, 2026-03-01, 2009-08-18, 10 Blocky Avenue, +1 555-444-2222, alex@minecraft.fake, 65, 0, America/Phoenix,
-teacher, Kratos, Spartan, 48, 14, 2026-03-02, 1985-01-01, 400 Mount Olympus, +1 555-555-1111, kratos@godofwar.fake, 120, 0, America/New_York, anger management pending
-teacher, Atreus, Loki, 49, 14, 2026-03-02, 2008-11-30, 400 Mount Olympus, +1 555-555-2222, atreus@godofwar.fake, 85, 60, America/New_York,
-teacher, Master, Chief, 50, 15, 2026-03-03, 1987-03-07, 117 Halo Ring, +1 555-666-1177, chief@halo.fake, 110, 0, America/Chicago, tactical training
-teacher, Cortana, AI, 51, 15, 2026-03-03, 1999-11-07, 117 Halo Ring, +1 555-666-0001, cortana@halo.fake, 100, -50, America/Chicago, system glitch
-teacher, Geralt, Rivia, 52, 16, 2026-03-04, 1983-05-05, 13 Kaer Morhen Keep, +1 555-777-1313, geralt@witcher.fake, 95, 200, America/Denver, monster hunting fee
-teacher, Yennefer, Vengerberg, 53, 16, 2026-03-04, 1988-09-19, 13 Kaer Morhen Keep, +1 555-777-1919, yennefer@witcher.fake, 105, 0, America/Denver,
-student, Pikachu, Ketchum, 54, 23, 2026-03-05, 2012-02-27, 25 Pallet Town Road, +1 555-888-2525, pikachu@pokemon.fake, 60, 30, America/Los_Angeles, thunderbolt practice
-student, Eevee, Evolution, 55, 23, 2026-03-05, 2013-07-14, 25 Pallet Town Road, +1 555-888-7777, eevee@pokemon.fake, 60, 0, America/Los_Angeles,
-teacher, Lara, Croft, 56, 17, 2026-03-06, 1992-02-14, 1 Croft Manor, +1 555-999-0001, lara@tombraider.fake, 100, 500, America/New_York, archaeology specialist
-teacher, Nathan, Drake, 57, 17, 2026-03-06, 1989-01-01, 22 Uncharted Island, +1 555-999-2222, nathan@uncharted.fake, 95, 75, America/New_York, treasure hunting leave
+teacher, Kratos, Spartan, 48, 14, 2026-03-02, 1985-01-01, 400 Mount Olympus, +1 555-555-1111, kratos@godofwar.fake, -120, 0, America/New_York, anger management pending
+teacher, Atreus, Loki, 49, 14, 2026-03-02, 2008-11-30, 400 Mount Olympus, +1 555-555-2222, atreus@godofwar.fake, -85, 60, America/New_York,
+teacher, Master, Chief, 50, 15, 2026-03-03, 1987-03-07, 117 Halo Ring, +1 555-666-1177, chief@halo.fake, -110, 0, America/Chicago, tactical training
+teacher, Cortana, AI, 51, 15, 2026-03-03, 1999-11-07, 117 Halo Ring, +1 555-666-0001, cortana@halo.fake, -100, -50, America/Chicago, system glitch
+teacher, Geralt, Rivia, 52, 16, 2026-03-04, 1983-05-05, 13 Kaer Morhen Keep, +1 555-777-1313, geralt@witcher.fake, -95, 200, America/Denver, monster hunting fee
+teacher, Yennefer, Vengerberg, 53, 16, 2026-03-04, 1988-09-19, 13 Kaer Morhen Keep, +1 555-777-1919, yennefer@witcher.fake, -105, 0, America/Denver,
+student, Pikachu, Ketchum, 54, 23, 2026-03-05, 2012-02-27, 25 Pallet Town Road, +1 555-888-2525, pikachu@pokemon.fake, -60, 30, America/Los_Angeles, thunderbolt practice
+student, Eevee, Evolution, 55, 23, 2026-03-05, 2013-07-14, 25 Pallet Town Road, +1 555-888-7777, eevee@pokemon.fake, -60, 0, America/Los_Angeles,
+teacher, Lara, Croft, 56, 17, 2026-03-06, 1992-02-14, 1 Croft Manor, +1 555-999-0001, lara@tombraider.fake, -100, 500, America/New_York, archaeology specialist
+teacher, Nathan, Drake, 57, 17, 2026-03-06, 1989-01-01, 22 Uncharted Island, +1 555-999-2222, nathan@uncharted.fake, -95, 75, America/New_York, treasure hunting leave

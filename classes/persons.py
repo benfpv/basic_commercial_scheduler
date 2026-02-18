@@ -10,7 +10,7 @@ from functions_csv import *
 from classes.person import *
 
 class Persons():
-    def __init__(self, path_to_global_commitments_data, path_to_global_meetings_data, path_to_person_data, path_to_person_availability_data, path_to_person_commitments_data, path_to_person_meetings_data, current_timezone="UTC"):
+    def __init__(self, path_to_global_commitments_data, path_to_global_meetings_data, path_to_person_data, path_to_person_availability_data, path_to_person_commitments_data, path_to_person_meetings_data, path_to_person_balance_history_data, current_timezone="UTC"):
         """
         Persons creates, stores, and operates on a collection of Person objects.
         Intended to be all-in-one structure containing all person objects, but only loading/writing as needed per operation.
@@ -26,6 +26,7 @@ class Persons():
         Person.path_to_person_availability_data = path_to_person_availability_data
         Person.path_to_person_commitments_data = path_to_person_commitments_data
         Person.path_to_person_meetings_data = path_to_person_meetings_data
+        Person.path_to_person_balance_history_data = path_to_person_balance_history_data
         # Debug Outputs
         self.print_debug = False
         Person.print_debug = self.print_debug
@@ -36,6 +37,8 @@ class Persons():
         persons_header, persons_lines_len, persons_lines = Functions_Csv.import_csv_cleaned(path_to_person_data)
         self.person_attributes = [x for x in persons_header]
         self.persons_len, self.persons = self._create_persons(persons_header, persons_lines_len, persons_lines)
+        # Balance Entry Modifiers (e.g., events, discounts)
+        self.global_balance_entry_modifiers = [] # list of floats that will be summed up (e.g., 1.0 is regular price).
         
         ### Dynamic Variables / Working Memories ###
         # Datetime
@@ -51,11 +54,16 @@ class Persons():
         string = f"Persons [{self.persons_len}]: {[x.first_name for x in self.persons]}"
         return string
     
-    def update_current_datetime(self):
-        print(f"------ update_current_datetime() ------") if (self.print_debug == True) else False
+    def _update_current_datetime(self):
+        print(f"------ _update_current_datetime() ------") if (self.print_debug == True) else False
         prev_datetime = deepcopy(self.current_datetime)
         self.current_datetime = datetime.now(self.current_timezone)
         print(f"- Datetime Updated: {prev_datetime} -> {self.current_datetime}")
+        
+    def update(self):
+        print(f"------ update() ------") if (self.print_debug == True) else False
+        self._update_current_datetime()
+        self.update_commitments_to_meetings()
     
     def _validate_user(self, items, persons):
         print(f"------ create_persons() ------") if (self.print_debug == True) else False
@@ -406,10 +414,39 @@ class Persons():
         
         self.print_global_commitments()
         return
-    
-    def convert_commitments_to_meetings(self, remove_availability=False, remove_commitment=False):
+        
+    def _create_balance_entries(self, meeting):
         FMT = "%Y-%m-%d %H:%M:%S%z"
-        print(f"------ convert_commitments_to_meetings() ------") if (self.print_debug == True) else False
+        print(f"------ _create_balance_entries() ------") if (self.print_debug == True) else False
+        print(f"Meeting: {meeting}") if (self.print_debug == True) else False
+        id_index = 0
+        datetime_start_index = 1
+        datetime_end_index = 2
+        
+        meeting_ids_str = meeting[id_index]
+        meeting_ids = [x for x in meeting[id_index].split("&")]
+        meeting_ids_len = len(meeting_ids)
+        
+        start_time_utc = meeting[datetime_start_index]
+        end_time_utc = meeting[datetime_end_index]
+        
+        # Obtain only relevant target persons
+        target_persons = [x for x in self.persons if (x.id in meeting_ids)]
+        target_persons_len = len(target_persons)
+            
+        for i, target_person in enumerate(target_persons):
+            entry = float(target_person.rate)
+            for em in self.global_balance_entry_modifiers:
+                entry *= float(em)
+            target_person.create_balance_entry(meeting_ids_str, start_time_utc, end_time_utc, entry)
+        
+    def _postprocess_meeting(self, meeting):
+        print(f"------ _postprocess_meeting() ------") if (self.print_debug == True) else False
+        self._create_balance_entries(meeting)
+    
+    def update_commitments_to_meetings(self, remove_availability=False, remove_commitment=False):
+        FMT = "%Y-%m-%d %H:%M:%S%z"
+        print(f"------ update_commitments_to_meetings() ------") if (self.print_debug == True) else False
         
         ### Gather evidence whether the meeting occurred; who attended, etc.
         # By Datetime Crossover Current Datetime
@@ -492,6 +529,9 @@ class Persons():
                 print(f"- Commitments (After) {i+1}/{target_persons_len} [{len(commitments)}]: {commitments}") if (self.print_debug == True) else False
                 print(f"- Meetings (After) {i+1}/{target_persons_len} [{len(meetings)}]: {meetings}") if (self.print_debug == True) else False
                 
+            # Postprocess Meeting
+            self._postprocess_meeting(crossover)
+            
         self.print_global_commitments()
         self.print_global_meetings()
         return

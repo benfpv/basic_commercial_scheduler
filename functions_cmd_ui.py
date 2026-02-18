@@ -10,18 +10,18 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
         self.clear_console = clear_console
 
         self.current = "mainmenu"
-        self.mainmenu = ["global_print_menu", "register_person", "search", "search_by_key", "manage_availability_menu", "manage_commitments_menu", "manage_meetings_menu", "find_intersection", "clear_selections", "toggle_debug_outputs", "exit"]
+        self.mainmenu = ["global_print_menu", "register_person", "search", "search_by_key", "selected_print_menu", "selected_availability_menu", "selected_commitments_menu", "selected_meetings_menu", "find_intersection", "clear_selections", "toggle_debug_outputs", "exit"]
         self.global_print_menu = ["print_global_active_meetings", "print_global_commitments", "print_global_meetings"]
-        self.manage_availability_menu = ["print_availability", "create_availability", "remove_availability"]
-        self.manage_commitments_menu = ["print_commitments", "create_commitments", "remove_commitments"]
-        self.manage_meetings_menu = ["print_meetings", "create_meetings", "remove_meetings"]
+        self.selected_print_menu = ["print_availability", "print_commitments", "print_meetings", "print_balance_history"]
+        self.selected_availability_menu = ["print_availability", "create_availability", "remove_availability"]
+        self.selected_commitments_menu = ["print_commitments", "create_commitments", "remove_commitments"]
+        self.selected_meetings_menu = ["print_meetings", "create_meetings", "remove_meetings"]
         self.menu_loop()
         
     def menu_loop(self):
         exit_now = False
         while (exit_now == False):
-            self.persons.update_current_datetime()
-            self.persons.convert_commitments_to_meetings()
+            self.persons.update()
             exit_now = self.print_current()
     
     def print_current_datetime(self):
@@ -126,14 +126,40 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
                                         self.persons.append_selected_person(matches[x])
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
-        elif (self.current == "manage_availability_menu"):
+        elif (self.current == "selected_print_menu"):
             if (not self.persons.selected_persons):
                 print("WARNING: No Selected Persons to Manage Availability For. Please Search for & Select Persons First.")
             else:
                 self.print_page_title("MANAGE AVAILABILITY MENU [For Selected Persons]")
-                user_input = self.get_userinput_index(self.manage_availability_menu)
+                user_input = self.get_userinput_index(self.selected_availability_menu)
                 if (user_input is not None):
-                    self.current = self.manage_availability_menu[user_input]
+                    self.current = self.selected_availability_menu[user_input]
+                    if (self.current == "print_availability"):
+                        self.print_page_title("PRINT AVAILABILITY [For Selected Persons]")
+                        for i, person in enumerate(self.persons.selected_persons):
+                            self.persons.print_availability(person)
+                    elif (self.current == "print_commitments"):
+                        self.print_page_title("PRINT COMMITMENTS [For Selected Persons]")
+                        for i, person in enumerate(self.persons.selected_persons):
+                            self.persons.print_commitments(person)
+                    elif (self.current == "print_meetings"):
+                        self.print_page_title("PRINT MEETINGS [For Selected Persons]")
+                        for i, person in enumerate(self.persons.selected_persons):
+                            self.persons.print_meetings(person)
+                    elif (self.current == "print_balance_history"):
+                        self.print_page_title("PRINT BALANCE HISTORY [For Selected Persons]")
+                        for i, person in enumerate(self.persons.selected_persons):
+                            self.persons.print_balance_history(person)
+            self.current = "mainmenu"
+            user_input = input("...Press Enter to Continue...")
+        elif (self.current == "selected_availability_menu"):
+            if (not self.persons.selected_persons):
+                print("WARNING: No Selected Persons to Manage Availability For. Please Search for & Select Persons First.")
+            else:
+                self.print_page_title("MANAGE AVAILABILITY MENU [For Selected Persons]")
+                user_input = self.get_userinput_index(self.selected_availability_menu)
+                if (user_input is not None):
+                    self.current = self.selected_availability_menu[user_input]
                     if (self.current == "print_availability"):
                         self.print_page_title("PRINT AVAILABILITY [For Selected Persons]")
                         for i, person in enumerate(self.persons.selected_persons):
@@ -152,14 +178,14 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
                                 self.persons.remove_availability(person, datetime_start_utc, datetime_end_utc)
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
-        elif (self.current == "manage_commitments_menu"):
+        elif (self.current == "selected_commitments_menu"):
             if (not self.persons.selected_persons):
                 print("WARNING: No Selected Persons to Manage Commitments For. Please Search for & Select Persons First.")
             else:
                 self.print_page_title("MANAGE COMMITMENTS MENU [For Selected Persons]")
-                user_input = self.get_userinput_index(self.manage_commitments_menu)
+                user_input = self.get_userinput_index(self.selected_commitments_menu)
                 if (user_input is not None):
-                    self.current = self.manage_commitments_menu[user_input]
+                    self.current = self.selected_commitments_menu[user_input]
                     if (self.current == "print_commitments"):
                         self.print_page_title("PRINT COMMITMENTS [For Selected Persons]")
                         for i, person in enumerate(self.persons.selected_persons):
@@ -178,14 +204,14 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
                                 self.persons.remove_commitment(person, datetime_start_utc, datetime_end_utc)
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
-        elif (self.current == "manage_meetings_menu"):
+        elif (self.current == "selected_meetings_menu"):
             if (not self.persons.selected_persons):
                 print("WARNING: No Selected Persons to Manage Meetings For. Please Search for & Select Persons First.")
             else:
                 self.print_page_title("MANAGE MEETINGS MENU [For Selected Persons]")
-                user_input = self.get_userinput_index(self.manage_meetings_menu)
+                user_input = self.get_userinput_index(self.selected_meetings_menu)
                 if (user_input is not None):
-                    self.current = self.manage_meetings_menu[user_input]
+                    self.current = self.selected_meetings_menu[user_input]
                     if (self.current == "print_meetings"):
                         self.print_page_title("PRINT MEETINGS [For Selected Persons]")
                         for i, person in enumerate(self.persons.selected_persons):

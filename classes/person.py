@@ -14,6 +14,7 @@ class Person():
     path_to_person_availability_data = "data\\person_availability.csv" # Default
     path_to_person_commitments_data = "data\\person_commitments.csv" # Default
     path_to_person_meetings_data = "data\\person_meetings.csv" # Default
+    path_to_person_balance_history_data = "data\\person_balance_history.csv" # Default
     
     def __init__(self, items):
         self.role = items[0]
@@ -37,6 +38,7 @@ class Person():
         self.availability = self._load_data(self.path_to_person_availability_data)
         self.commitments = self._load_data(self.path_to_person_commitments_data)
         self.meetings = self._load_data(self.path_to_person_meetings_data)
+        self.balance_history = self._load_data(self.path_to_person_balance_history_data)
         
     def __str__(self):
         string = f"Person: {self.role}, {self.first_name}, {self.last_name}, {self.id}, {self.family_id}, {self.date_registered}, {self.date_of_birth}, {self.address}, {self.phone_number}, {self.email}, {self.rate}, {self.balance}, {self.timezone}, {self.comments}"
@@ -68,6 +70,43 @@ class Person():
         self._print_self_basic() if (self.print_debug == True) else False
         print(f"- Data {path_to_data_csv} [{len(data_id_matched)}]: {data_id_matched}") if (self.print_debug == True) else False
         return data_id_matched
+        
+    def _update_person_data(self):
+        print("------ _update_person_data() ------") if self.print_debug else None
+        file_path=self.path_to_person_data
+        if not os.path.exists(file_path):
+            print("person.csv does not exist.") if self.print_debug else None
+            return False
+        updated=False
+        with open(file_path,"r",encoding="utf-8") as f:
+            lines=f.readlines()
+        if not lines:
+            print("CSV is empty.") if self.print_debug else None
+            return False
+        header=lines[0].rstrip("\n")
+        fieldnames=header.split(",")
+        current_data_dict={field:str(getattr(self,field,"")) for field in fieldnames}
+        with tempfile.NamedTemporaryFile(mode="w",delete=False,encoding="utf-8") as temp_file:
+            temp_file.write(header+"\n")
+            for line in lines[1:]:
+                row_values=line.rstrip("\n").split(",")
+                row_dict=dict(zip(fieldnames,row_values))
+                if row_dict.get("id")==str(self.id):
+                    if any(str(row_dict.get(field,""))!=current_data_dict[field] for field in fieldnames):
+                        new_line=",".join(current_data_dict[field] for field in fieldnames)
+                        temp_file.write(new_line+"\n")
+                        updated=True
+                        print("Person data updated.") if self.print_debug else None
+                    else:
+                        temp_file.write(line)
+                        print("No changes detected.") if self.print_debug else None
+                else:
+                    temp_file.write(line)
+        if updated:
+            os.replace(temp_file.name,file_path)
+        else:
+            os.remove(temp_file.name)
+        return updated
         
     def _sort_datetimes(self, datetimes_list):
         print(f"------ _sort_datetimes() ------") if (self.print_debug == True) else False
@@ -195,7 +234,7 @@ class Person():
         for ata_start_time, ata_end_time in datetime_to_add:
             self._create_datetime(datetimes_list, path_to_datetimes_csv, ata_start_time, ata_end_time)
         self._sort_datetimes(datetimes_list)
-    
+
     ### Operation-Specific Functions (For End-User Use) ###
     def print_availability(self):
         print(f"------ print_availability() ------") if (self.print_debug == True) else False
@@ -262,3 +301,36 @@ class Person():
         """
         print(f"------ remove_meeting() ------") if (self.print_debug == True) else False
         self._remove_datetime(self.meetings, self.path_to_person_meetings_data, start_datetime, end_datetime)
+
+    def print_balance_history(self):
+        print(f"------ print_balance_history() ------") if (self.print_debug == True) else False
+        self._print_self_basic()
+        print(f"Balance: {self.balance}")
+        print(f"Balance History [{len(self.balance_history)}]: ")
+        [print(f"- {x}") for x in self.balance_history]
+
+    def create_balance_entry(self, associate_ids_str, start_time_utc, end_time_utc, entry):
+        print(f"------ create_balance_entry() ------") if (self.print_debug == True) else False
+        # Check Existing File & Correct Format
+        with open(self.path_to_person_balance_history_data, "r") as f:
+            lines = f.readlines()
+            lines_len = len(lines)
+        if (lines_len == 0):
+            print(f"ERROR: File ({self.path_to_person_balance_history_data}) is Empty. Exiting.")
+            exit()
+        else:
+            if ("\n" not in lines[-1]):
+                a_line = "\n" + a_line
+        # Calculate Balance
+        self.balance = float(self.balance) + float(entry)
+        self._update_person_data()
+        # Write Line
+        a_line = f"{self.id}, {associate_ids_str}, {start_time_utc}, {end_time_utc}, {entry}, {self.balance}\n"
+        a_split = [x.strip() for x in a_line.split(",")]
+        if (a_split not in self.balance_history):
+            # Append & Write
+            self.balance_history.append(a_split)
+            with open(self.path_to_person_balance_history_data, "a") as f:
+                f.write(a_line)
+        # Print
+        self.print_balance_history()
