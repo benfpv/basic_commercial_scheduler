@@ -46,6 +46,8 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             elif (user_input not in range(len(menu_options))):
                 print(f"ERROR: User input ({user_input}) is not a valid index.")
                 user_input = None
+        else:
+            user_input = None
         return user_input
     
     def print_current(self):
@@ -262,5 +264,6 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "exit"):
             exit_now = True
+            print("Exiting...")
         return exit_now
     
