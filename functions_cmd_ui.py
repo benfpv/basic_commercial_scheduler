@@ -38,20 +38,20 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             print(f"[{i}]: {content}")
     def get_userinput_index(self, menu_options):
         self.print_contents(menu_options)
-        self.print_page_subtitle("Please Enter Index:")
+        self.print_page_subtitle("Please Enter Index (Enter '' to go back):")
         user_input = input()
-        if (user_input.isnumeric()):
-            user_input = int(user_input)
-        if (user_input not in range(len(menu_options))):
-            print(f"ERROR: User input ({user_input}) is not a valid index.")
-            user_input = None
+        if (user_input):
+            if (user_input.isnumeric()):
+                user_input = int(user_input)
+            elif (user_input not in range(len(menu_options))):
+                print(f"ERROR: User input ({user_input}) is not a valid index.")
+                user_input = None
         return user_input
     
     def print_current(self):
         exit_now = False
         if (self.current == "mainmenu"):
             self.print_page_title("MAIN MENU")
-            
             self.print_page_subtitle("Selected:")
             self.persons.print_selected_persons()
             self.print_page_subtitle("Menu:")
@@ -128,9 +128,9 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "selected_print_menu"):
             if (not self.persons.selected_persons):
-                print("WARNING: No Selected Persons to Manage Availability For. Please Search for & Select Persons First.")
+                print("WARNING: No Selected Persons to Print For. Please Search for & Select Persons First.")
             else:
-                self.print_page_title("MANAGE AVAILABILITY MENU [For Selected Persons]")
+                self.print_page_title("SELECTED PRINT MENU [For Selected Persons]")
                 user_input = self.get_userinput_index(self.selected_availability_menu)
                 if (user_input is not None):
                     self.current = self.selected_availability_menu[user_input]
