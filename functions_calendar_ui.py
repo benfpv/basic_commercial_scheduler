@@ -1,160 +1,165 @@
-from datetime import datetime, timedelta
+import calendar
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 
 class Functions_Calendar_Ui:
-    def __init__(self, current_datetime):
+    def __init__(self, current_datetime: datetime):
         if current_datetime.tzinfo is None:
             raise ValueError("current_datetime must be timezone-aware")
         self.current_datetime = current_datetime
         self.local_tz = current_datetime.tzinfo
         self.utc_tz = ZoneInfo("UTC")
 
-    # -------- Prompt User to Select Timezone --------
+    # --------------------- Helpers ---------------------
+    def _safe_int(self, prompt: str, default: int | None = None) -> int | None:
+        while True:
+            inp = input(prompt).strip()
+            if not inp and default is not None:
+                return default
+            try:
+                return int(inp)
+            except ValueError:
+                print("❌ Please enter a number.")
+
+    def _parse_time(self, time_str: str, date: datetime) -> datetime | None:
+        """AM/PM by default (e.g. 3:30 PM), also accepts 24h (15:30)"""
+        time_str = time_str.strip().upper().replace(".", ":")
+        formats = ["%I:%M %p", "%I:%M%p", "%H:%M"]
+        for fmt in formats:
+            try:
+                t = datetime.strptime(time_str, fmt)
+                return date.replace(hour=t.hour, minute=t.minute)
+            except ValueError:
+                continue
+        return None
+
+    # --------------------- Timezone ---------------------
     def select_timezone(self):
-        example_timezones = [
-            "UTC", "America/Toronto", "America/New_York", "Europe/London",
-            "Asia/Tokyo", "Australia/Sydney", "Europe/Paris", "America/Los_Angeles"
-        ]
-        print("Select your timezone from the list (or press Enter to use the system's timezone):")
-        print("Example timezones:", ", ".join(example_timezones))
-        tz_input = input(f"Enter timezone (e.g., 'Europe/London'): ").strip()
-
-        if not tz_input:  # If blank, use system timezone (tzinfo of current_datetime)
-            tz_input = self.local_tz.key
-            print(f"Using system timezone: {tz_input}")
-
-        try:
-            tz = ZoneInfo(tz_input)
-            self.local_tz = tz
-            print(f"Timezone set to: {self.local_tz}")
-        except Exception as e:
-            print(f"Invalid timezone entered: {tz_input}. Defaulting to system timezone.")
-            self.local_tz = self.current_datetime.tzinfo
-            print(f"Using system timezone: {self.local_tz}")
-
-    # -------- Print calendar month --------
-    def print_month(self, year, month):
-        print(f"\n      {datetime(year, month, 1):%B %Y}")
-        print("Mo Tu We Th Fr Sa Su")
-        first_day = datetime(year, month, 1)
-        start_weekday = first_day.weekday()  # Monday=0
-
-        if month == 12:
-            next_month = datetime(year + 1, 1, 1)
+        common = ["UTC", "America/Toronto", "America/New_York", "Europe/London",
+                  "Europe/Paris", "Asia/Tokyo", "Australia/Sydney", "America/Los_Angeles"]
+        print("\nCommon timezones:")
+        for i, tz in enumerate(common, 1):
+            print(f" {i:2}. {tz}")
+        print(" 0. Type custom timezone")
+        choice = self._safe_int("Select (0 or number): ", default=0)
+        if choice == 0:
+            tz_str = input("Enter timezone (e.g. America/Toronto): ").strip()
         else:
-            next_month = datetime(year, month + 1, 1)
+            tz_str = common[choice - 1]
+        try:
+            self.local_tz = ZoneInfo(tz_str)
+            print("--------------------------------------")
+            print(f"✅ Timezone set to: {self.local_tz}")
+            print("--------------------------------------")
+        except Exception:
+            print("--------------------------------------")
+            print("❌ Invalid timezone → keeping current.")
+            print("--------------------------------------")
+            self.local_tz = self.current_datetime.tzinfo
 
-        num_days = (next_month - first_day).days
+    # --------------------- Calendar ---------------------
+    def print_month(self, year: int, month: int):
+        print(f"\n{calendar.month_name[month]} {year}")
+        print(calendar.month(year, month).replace(
+            str(self.current_datetime.day).rjust(2),
+            f"[{self.current_datetime.day}]" if (year, month) == (self.current_datetime.year, self.current_datetime.month) else str(self.current_datetime.day).rjust(2)
+        ))
 
-        print("   " * start_weekday, end="")
-        for day in range(1, num_days + 1):
-            print(f"{day:2}", end=" ")
-            if (start_weekday + day) % 7 == 0:
-                print()
-        print("\n")
-
-    # -------- Select a single time slot --------
-    def select_single_slot(self, year, month):
-        # Select date
+    def select_date(self) -> datetime | None:
+        year = self.current_datetime.year
+        month = self.current_datetime.month
         while True:
             self.print_month(year, month)
-            day_input = input("Enter day number (or 'q' to cancel): ")
-
-            if day_input.lower() == "q":
+            cmd = input("\nDay number or command (n=next month, p=prev month, nn=next year, pp=prev year, q=cancel): ").strip().lower()
+            if cmd == 'q':
                 return None
+            if cmd == 'n':
+                month += 1
+            elif cmd == 'p':
+                month -= 1
+            elif cmd == 'nn':
+                year += 1
+            elif cmd == 'pp':
+                year -= 1
+            else:
+                try:
+                    day = int(cmd)
+                    return datetime(year, month, day, tzinfo=self.local_tz)
+                except (ValueError, TypeError):
+                    print("Invalid input.")
+                    continue
+            if month > 12:
+                month = 1
+                year += 1
+            elif month < 1:
+                month = 12
+                year -= 1
 
-            if not day_input.isdigit():
-                print("Invalid input.")
-                continue
-
-            day = int(day_input)
-
-            try:
-                selected_date = datetime(year, month, day, tzinfo=self.local_tz)
-            except ValueError:
-                print("Invalid date.")
-                continue
-
-            break
-
-        # Select start time
+    # --------------------- Time Range (AM/PM default) ---------------------
+    def select_time_range(self, date: datetime) -> tuple[datetime, datetime] | None:
         while True:
-            time_input = input("Enter start time (HH:MM, 24h): ")
-
-            try:
-                hour, minute = map(int, time_input.split(":"))
-                datetime_start_local = selected_date.replace(hour=hour, minute=minute)
+            start_str = input(f"Start time for {date:%Y-%m-%d} (e.g. 3:30 PM): ").strip()
+            start = self._parse_time(start_str, date)
+            if start:
                 break
-            except:
-                print("Invalid time format.")
+            print("❌ Invalid time — try 3:30 PM or 15:30")
 
-        # Select duration
         while True:
-            duration_input = input("Enter duration (minutes): ")
-            if not duration_input.isdigit():
-                print("Invalid duration.")
-                continue
-            duration = int(duration_input)
-            datetime_end_local = datetime_start_local + timedelta(minutes=duration)
-            break
+            end_str = input("End time (e.g. 4:45 PM): ").strip()
+            end = self._parse_time(end_str, date)
+            if end and end > start:
+                return start, end
+            print("❌ Invalid or end must be after start")
 
-        # Convert to UTC
-        datetime_start_utc = datetime_start_local.astimezone(self.utc_tz)
-        datetime_end_utc = datetime_end_local.astimezone(self.utc_tz)
-
-        return [datetime_start_utc, datetime_end_utc]
-
-    # -------- Main callable function --------
-    def select_time_slot(self, current_datetime=None):
-        """
-        Main method to select multiple slots.
-        Returns a list of [start_utc, end_utc] pairs.
-        """
+    # --------------------- Main function ---------------------
+    def select_time_slot(self, current_datetime: datetime | None = None) -> list[tuple[datetime, datetime]]:
         if current_datetime:
-            # Override instance datetime if provided
-            if current_datetime.tzinfo is None:
-                raise ValueError("current_datetime must be timezone-aware")
             self.current_datetime = current_datetime
             self.local_tz = current_datetime.tzinfo
 
-        year = self.current_datetime.year
-        month = self.current_datetime.month
-        slots = []
-
-        print("\nSelect multiple time slots. Type 'done' when finished.\n")
-
-        # Prompt user to select timezone before starting slot selection
+        print("\n=== Time Slot Selector ===")
         self.select_timezone()
 
+        slots: list[tuple[datetime, datetime]] = []
         while True:
-            user_choice = input("Add a new slot? (y/done): ").lower()
-            if user_choice == "done":
-                break
-            elif user_choice != "y":
-                print("Type 'y' to add or 'done' to finish.")
-                continue
+            print("--------------------------------------")
+            print(f"Current slots ({len(slots)}):")
+            for i, (s, e) in enumerate(slots, 1):
+                print(f" {i}. {s:%Y-%m-%d %H:%M} → {e:%H:%M} UTC")
+            print("--------------------------------------")
 
-            slot = self.select_single_slot(year, month)
-            if slot:
-                slots.append(slot)
-                print(f"Slot added: {slot[0]} to {slot[1]} (UTC)\n")
+            action = input("a = add slot | r = remove last | c = clear all | d = done: ").strip().lower()
+            if action == 'd':
+                break
+            elif action == 'r' and slots:
+                slots.pop()
+                print("Last slot removed.")
+            elif action == 'c':
+                slots.clear()
+                print("All slots cleared.")
+            elif action == 'a':
+                date = self.select_date()
+                if not date:
+                    continue
+                times = self.select_time_range(date)
+                if times:
+                    start_utc = times[0].astimezone(self.utc_tz)
+                    end_utc = times[1].astimezone(self.utc_tz)
+                    slots.append((start_utc, end_utc))
+                    print(f"✅ Added: {start_utc} → {end_utc} (UTC)")
+            else:
+                print("Unknown command.")
 
         if not slots:
             print("No slots selected.")
             return []
 
-        # Confirmation
-        print("\nYou selected the following slots:")
-        for i, (start, end) in enumerate(slots, 1):
-            print(f"{i}. {start} to {end} (UTC)")
-
-        while True:
-            confirm = input("Confirm? (y/n): ").lower()
-            if confirm == "y":
-                return slots
-            elif confirm == "n":
-                print("Selection cancelled.")
-                return []
-            else:
-                print("Type 'y' to confirm or 'n' to cancel.")
+        # ==================== CONFIRMATION ====================
+        print("\n---------- Confirm these slots? (y/n) ----------")
+        print(f"Current slots ({len(slots)}):")
+        for i, (s, e) in enumerate(slots, 1):
+            print(f" {i}. {s:%Y-%m-%d %H:%M} → {e:%H:%M} UTC")
+        print("--------------------------------------")
+        confirm = input("Confirm? (y/n): ").strip().lower()
+        return slots if confirm == 'y' else []

@@ -20,7 +20,7 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
         
     def menu_loop(self):
         exit_now = False
-        while (exit_now == False):
+        while (not exit_now):
             self.persons.update()
             exit_now = self.print_current()
     
@@ -31,19 +31,21 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             os.system("cls") if (os.name == "nt") else os.system("clear")
         print(f"==================== {title} ====================")
         self.print_current_datetime()
+
     def print_page_subtitle(self, subtitle):
         print(f"---------- {subtitle} ----------")
     def print_contents(self, contents):
         for i, content in enumerate(contents):
             print(f"[{i}]: {content}")
     def get_userinput_index(self, menu_options):
+        menu_options_len = len(menu_options)
         self.print_contents(menu_options)
         self.print_page_subtitle("Please Enter Index (Enter '' to go back):")
         user_input = input()
         if (user_input):
             if (user_input.isnumeric()):
                 user_input = int(user_input)
-            elif (user_input not in range(len(menu_options))):
+            elif not (0 <= user_input < menu_options_len):
                 print(f"ERROR: User input ({user_input}) is not a valid index.")
                 user_input = None
         else:
@@ -60,7 +62,7 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             user_input = self.get_userinput_index(self.mainmenu)
             if (user_input is not None):
                 self.current = self.mainmenu[user_input]
-        if (self.current == "global_print_menu"):
+        elif (self.current == "global_print_menu"):
             self.print_page_title("GLOBAL PRINT MENU")
             user_input = self.get_userinput_index(self.global_print_menu)
             if (user_input is not None):
@@ -69,7 +71,7 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
                     self.print_page_title("PRINT GLOBAL ACTIVE MEETINGS")
                     self.persons.print_global_active_meetings()
                 elif (self.current == "print_global_commitments"):
-                    self.print_page_title("PRINT GLOBAL COMMMITMENTS")
+                    self.print_page_title("PRINT GLOBAL COMMITMENTS")
                     self.persons.print_global_commitments()
                 elif (self.current == "print_global_meetings"):
                     self.print_page_title("PRINT GLOBAL MEETINGS")
@@ -98,8 +100,10 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
                     for x in user_input:
                         if (x.isnumeric()):
                             x = int(x)
-                            if (x in range(len(matches))):
+                            if (0 <= x < len(matches)):
                                 self.persons.append_selected_person(matches[x])
+                else:
+                    print("No matches found...")
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "search_by_key"):
@@ -126,6 +130,8 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
                                     x = int(x)
                                     if (x in range(len(matches))):
                                         self.persons.append_selected_person(matches[x])
+                    else:
+                        print("No matches found...")
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "selected_print_menu"):
@@ -133,9 +139,9 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
                 print("WARNING: No Selected Persons to Print For. Please Search for & Select Persons First.")
             else:
                 self.print_page_title("SELECTED PRINT MENU [For Selected Persons]")
-                user_input = self.get_userinput_index(self.selected_availability_menu)
+                user_input = self.get_userinput_index(self.selected_print_menu)
                 if (user_input is not None):
-                    self.current = self.selected_availability_menu[user_input]
+                    self.current = self.selected_print_menu[user_input]
                     if (self.current == "print_availability"):
                         self.print_page_title("PRINT AVAILABILITY [For Selected Persons]")
                         for i, person in enumerate(self.persons.selected_persons):
@@ -173,11 +179,21 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
                             for datetime_start_utc, datetime_end_utc in slots:
                                 self.persons.create_availability(person, datetime_start_utc, datetime_end_utc)
                     elif (self.current == "remove_availability"):
-                        self.print_page_title("REMOVE AVAILABILITY [For Selected Persons]")
-                        slots = Functions_Calendar_Ui(self.persons.current_datetime).select_time_slot()
+                        self.print_page_title("REMOVE AVAILABILITIES [For Selected Persons]")
                         for i, person in enumerate(self.persons.selected_persons):
-                            for datetime_start_utc, datetime_end_utc in slots:
-                                self.persons.remove_availability(person, datetime_start_utc, datetime_end_utc)
+                            self.print_contents(self.persons.get_availability(person))
+                            slots_len = len(self.persons.get_availability(person))
+                            if (slots_len > 0):
+                                self.print_page_subtitle(f"Remove Which Availabilities (Separated by Space)(Enter '' to go back) for: {person.first_name} {person.last_name} #{person.id}: ")
+                                user_input = input()
+                                user_input = [x for x in user_input.split(" ")]
+                                for x in user_input:
+                                    if (x.isnumeric()):
+                                        x = int(x)
+                                        if (0 <= x < slots_len):
+                                            self.persons.remove_availability(person, target_index=x)
+                            else:
+                                print(f"No Availabilities to Remove for: {person.first_name} {person.last_name} #{person.id}...")
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "selected_commitments_menu"):
@@ -200,10 +216,20 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
                                 self.persons.create_commitment(person, datetime_start_utc, datetime_end_utc)
                     elif (self.current == "remove_commitments"):
                         self.print_page_title("REMOVE COMMITMENTS [For Selected Persons]")
-                        slots = Functions_Calendar_Ui(self.persons.current_datetime).select_time_slot()
                         for i, person in enumerate(self.persons.selected_persons):
-                            for datetime_start_utc, datetime_end_utc in slots:
-                                self.persons.remove_commitment(person, datetime_start_utc, datetime_end_utc)
+                            self.print_contents(self.persons.get_commitments(person))
+                            slots_len = len(self.persons.get_commitments(person))
+                            if (slots_len > 0):
+                                self.print_page_subtitle(f"Remove Which Commitments (Separated by Space)(Enter '' to go back) for: {person.first_name} {person.last_name} #{person.id}: ")
+                                user_input = input()
+                                user_input = [x for x in user_input.split(" ")]
+                                for x in user_input:
+                                    if (x.isnumeric()):
+                                        x = int(x)
+                                        if (0 <= x < slots_len):
+                                            self.persons.remove_commitment(person, target_index=x)
+                            else:
+                                print(f"No Commitments to Remove for: {person.first_name} {person.last_name} #{person.id}...")
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "selected_meetings_menu"):
@@ -226,10 +252,20 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
                                 self.persons.create_meeting(person, datetime_start_utc, datetime_end_utc)
                     elif (self.current == "remove_meetings"):
                         self.print_page_title("REMOVE MEETINGS [For Selected Persons]")
-                        slots = Functions_Calendar_Ui(self.persons.current_datetime).select_time_slot()
                         for i, person in enumerate(self.persons.selected_persons):
-                            for datetime_start_utc, datetime_end_utc in slots:
-                                self.persons.remove_meeting(person, datetime_start_utc, datetime_end_utc)
+                            self.print_contents(self.persons.get_meetings(person))
+                            slots_len = len(self.persons.get_meetings(person))
+                            if (slots_len > 0):
+                                self.print_page_subtitle(f"Remove Which Meetings (Separated by Space)(Enter '' to go back) for: {person.first_name} {person.last_name} #{person.id}: ")
+                                user_input = input()
+                                user_input = [x for x in user_input.split(" ")]
+                                for x in user_input:
+                                    if (x.isnumeric()):
+                                        x = int(x)
+                                        if (0 <= x < slots_len):
+                                            self.persons.remove_meeting(person, target_index=x)
+                            else:
+                                print(f"No Meetings to Remove for: {person.first_name} {person.last_name} #{person.id}...")
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "find_intersection"):
@@ -237,17 +273,20 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             intersections = self.persons.get_intersecting_availability()
             self.print_page_subtitle(f"Intersections Found: ")
             self.print_contents(intersections)
-            if (intersections):
+            intersections_len = len(intersections)
+            if (intersections_len > 0):
                 self.print_page_subtitle(f"Please Enter Indices of Intersections to Commit (Enter '' to go back):")
                 user_input = input()
                 user_input = [x for x in user_input.split(" ")]
                 for x in user_input:
                     if (x.isnumeric()):
                         x = int(x)
-                        if (x in range(len(intersections))):
+                        if (0 <= x < intersections_len):
                             self.persons.append_selected_intersection(intersections[x])
                 if (self.persons.selected_intersections):
                     self.persons.create_intersecting_commitments()
+            else:
+                print("No intersections found...")
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "clear_selections"):

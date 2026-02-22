@@ -16,6 +16,8 @@ class Person():
     path_to_person_meetings_data = "data\\person_meetings.csv" # Default
     path_to_person_balance_history_data = "data\\person_balance_history.csv" # Default
     
+    print_debug = True
+    
     def __init__(self, items):
         self.role = items[0]
         self.first_name = items[1]
@@ -31,8 +33,6 @@ class Person():
         self.balance = items[11]
         self.timezone = items[12]
         self.comments = items[13]
-        
-        self.print_debug = True
         
         ### Load Static (or LTM) Variables (e.g., Availability, Lessons History, Balance History)
         self.availability = self._load_data(self.path_to_person_availability_data)
@@ -234,13 +234,17 @@ class Person():
         for ata_start_time, ata_end_time in datetime_to_add:
             self._create_datetime(datetimes_list, path_to_datetimes_csv, ata_start_time, ata_end_time)
         self._sort_datetimes(datetimes_list)
-
+    
     ### Operation-Specific Functions (For End-User Use) ###
     def print_availability(self):
+        FMT = "%Y-%m-%d %H:%M:%S%z"
         print(f"------ print_availability() ------") if (self.print_debug == True) else False
         self._print_self_basic()
-        print(f"Availability [{len(self.availability)}]: ")
-        [print(f"- {x}") for x in self.availability]
+        print(f"Availability [{len(self.availability)}] (Timezone: {self.timezone}): ")
+        for x in self.availability:
+            start_datetime = datetime.strptime(x[1], FMT).astimezone(self.timezone)
+            end_datetime = datetime.strptime(x[2], FMT).astimezone(self.timezone)
+            print(f"- {start_datetime} -> {end_datetime}")
     def create_availability(self, start_datetime, end_datetime):
         """
         Create availability slot/line to self.availability and write it to .csv.
@@ -249,20 +253,29 @@ class Person():
         """
         print(f"------ create_availability() ------") if (self.print_debug == True) else False
         self._create_datetime(self.availability, self.path_to_person_availability_data, start_datetime, end_datetime)
-    def remove_availability(self, start_datetime, end_datetime):
+    def remove_availability(self, start_datetime="", end_datetime="", target_index=None):
         """
         Remove availability slot/line to self.availability and write it to .csv.
         - Duplicates are not removed/written.
         - Overlaps are resolved (e.g., if availability is removed within/before/after/engulfing existing, the slots/lines are changed to accomodate the removal command).
         """
         print(f"------ remove_availability() ------") if (self.print_debug == True) else False
+        if (target_index is not None):
+            FMT = "%Y-%m-%d %H:%M:%S%z"
+            this_datetimes = self.availability[target_index]
+            start_datetime = datetime.strptime(this_datetimes[1], FMT)
+            end_datetime = datetime.strptime(this_datetimes[2], FMT)
         self._remove_datetime(self.availability, self.path_to_person_availability_data, start_datetime, end_datetime)
         
     def print_commitments(self):
+        FMT = "%Y-%m-%d %H:%M:%S%z"
         print(f"------ print_commitments() ------") if (self.print_debug == True) else False
         self._print_self_basic()
-        print(f"Commitments [{len(self.commitments)}]: ")
-        [print(f"- {x}") for x in self.commitments]
+        print(f"Commitments [{len(self.commitments)}] (Timezone: {self.timezone}): ")
+        for x in self.commitments:
+            start_datetime = datetime.strptime(x[1], FMT).astimezone(self.timezone)
+            end_datetime = datetime.strptime(x[2], FMT).astimezone(self.timezone)
+            print(f"- {start_datetime} -> {end_datetime}")
     def create_commitment(self, start_datetime, end_datetime):
         """
         Create commitment slot/line to self.commitments and write it to .csv.
@@ -271,20 +284,29 @@ class Person():
         """
         print(f"------ create_commitment() ------") if (self.print_debug == True) else False
         self._create_datetime(self.commitments, self.path_to_person_commitments_data, start_datetime, end_datetime)
-    def remove_commitment(self, start_datetime, end_datetime):
+    def remove_commitment(self, start_datetime="", end_datetime="", target_index=None):
         """
         Remove commitment slot/line to self.commitments and write it to .csv.
         - Duplicates are not removed/written.
         - Overlaps are resolved (e.g., if commitment is removed within/before/after/engulfing existing, the slots/lines are changed to accomodate the removal command).
         """
         print(f"------ remove_commitment() ------") if (self.print_debug == True) else False
+        if (target_index is not None):
+            FMT = "%Y-%m-%d %H:%M:%S%z"
+            this_datetimes = self.commitments[target_index]
+            start_datetime = datetime.strptime(this_datetimes[1], FMT)
+            end_datetime = datetime.strptime(this_datetimes[2], FMT)
         self._remove_datetime(self.commitments, self.path_to_person_commitments_data, start_datetime, end_datetime)
         
     def print_meetings(self):
+        FMT = "%Y-%m-%d %H:%M:%S%z"
         print(f"------ print_meetings() ------") if (self.print_debug == True) else False
         self._print_self_basic()
-        print(f"Meetings [{len(self.meetings)}]: ")
-        [print(f"- {x}") for x in self.meetings]
+        print(f"Meetings [{len(self.meetings)}] (Timezone: {self.timezone}): ")
+        for x in self.meetings:
+            start_datetime = datetime.strptime(x[1], FMT).astimezone(self.timezone)
+            end_datetime = datetime.strptime(x[2], FMT).astimezone(self.timezone)
+            print(f"- {start_datetime} -> {end_datetime}")
     def create_meeting(self, start_datetime, end_datetime):
         """
         Create meeting slot/line to self.meetings and write it to .csv.
@@ -293,13 +315,18 @@ class Person():
         """
         print(f"------ create_meeting() ------") if (self.print_debug == True) else False
         self._create_datetime(self.meetings, self.path_to_person_meetings_data, start_datetime, end_datetime)
-    def remove_meeting(self, start_datetime, end_datetime):
+    def remove_meeting(self, start_datetime="", end_datetime="", target_index=None):
         """
         Remove meeting slot/line from self.meetings and write it to .csv.
         - Duplicates are not removed/written.
         - Overlaps are resolved (e.g., if meeting is removed within/before/after/engulfing existing, the slots/lines are adjusted to accommodate the removal).
         """
         print(f"------ remove_meeting() ------") if (self.print_debug == True) else False
+        if (target_index is not None):
+            FMT = "%Y-%m-%d %H:%M:%S%z"
+            this_datetimes = self.meetings[target_index]
+            start_datetime = datetime.strptime(this_datetimes[1], FMT)
+            end_datetime = datetime.strptime(this_datetimes[2], FMT)
         self._remove_datetime(self.meetings, self.path_to_person_meetings_data, start_datetime, end_datetime)
 
     def print_balance_history(self):

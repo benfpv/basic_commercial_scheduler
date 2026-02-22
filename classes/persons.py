@@ -303,14 +303,61 @@ class Persons():
         self.selected_intersections.append(intersection)
         
     def print_availability(self, person):
+        FMT = "%Y-%m-%d %H:%M:%S%z"
         print(f"------ print_availability() for '{person}' ------") if (self.print_debug == True) else False
-        person.print_availability()
+        print(person)
+        print(f"Availability [{len(person.availability)}] (Timezone: {self.current_timezone}): ")
+        for x in person.availability:
+            start_datetime = datetime.strptime(x[1], FMT).astimezone(self.current_timezone)
+            end_datetime = datetime.strptime(x[2], FMT).astimezone(self.current_timezone)
+            print(f"- {start_datetime} -> {end_datetime}")
     def create_availability(self, person, start_datetime, end_datetime):
         print(f"------ create_availability() for '{person}' ------") if (self.print_debug == True) else False
         person.create_availability(start_datetime, end_datetime)
-    def remove_availability(self, person, start_datetime, end_datetime):
+    def get_availability(self, person):
+        print(f"------ get_availability() for '{person}' ------") if (self.print_debug == True) else False
+        return person.availability
+    def remove_availability(self, person, start_datetime="", end_datetime="", target_index=None):
         print(f"------ remove_availability() for '{person}' ------") if (self.print_debug == True) else False
-        person.remove_availability(start_datetime, end_datetime)
+        person.remove_availability(start_datetime, end_datetime, target_index)
+    
+    def print_commitments(self, person):
+        FMT = "%Y-%m-%d %H:%M:%S%z"
+        print(f"------ print_commitments() for '{person}' ------") if (self.print_debug == True) else False
+        print(person)
+        print(f"Commitments [{len(person.commitments)}] (Timezone: {self.current_timezone}): ")
+        for x in person.commitments:
+            start_datetime = datetime.strptime(x[1], FMT).astimezone(self.current_timezone)
+            end_datetime = datetime.strptime(x[2], FMT).astimezone(self.current_timezone)
+            print(f"- {start_datetime} -> {end_datetime}")
+    def create_commitment(self, person, start_datetime, end_datetime):
+        print(f"------ create_commitment() for '{person}' ------") if (self.print_debug == True) else False
+        person.create_commitment(start_datetime, end_datetime)
+    def get_commitments(self, person):
+        print(f"------ get_commitments() for '{person}' ------") if (self.print_debug == True) else False
+        return person.commitments
+    def remove_commitment(self, person, start_datetime="", end_datetime="", target_index=None):
+        print(f"------ remove_commitment() for '{person}' ------") if (self.print_debug == True) else False
+        person.remove_commitment(start_datetime, end_datetime, target_index)
+    
+    def print_meetings(self, person):
+        FMT = "%Y-%m-%d %H:%M:%S%z"
+        print(f"------ print_meetings() for '{person}' ------") if (self.print_debug == True) else False
+        print(person)
+        print(f"Meetings [{len(person.meetings)}] (Timezone: {self.current_timezone}): ")
+        for x in person.meetings:
+            start_datetime = datetime.strptime(x[1], FMT).astimezone(self.current_timezone)
+            end_datetime = datetime.strptime(x[2], FMT).astimezone(self.current_timezone)
+            print(f"- {start_datetime} -> {end_datetime}")
+    def create_meeting(self, person, start_datetime, end_datetime):
+        print(f"------ create_meeting() for '{person}' ------") if (self.print_debug == True) else False
+        person.create_meeting(start_datetime, end_datetime)
+    def get_meetings(self, person):
+        print(f"------ get_meetings() for '{person}' ------") if (self.print_debug == True) else False
+        return person.meetings
+    def remove_meeting(self, person, start_datetime="", end_datetime="", target_index=None):
+        print(f"------ remove_meeting() for '{person}' ------") if (self.print_debug == True) else False
+        person.remove_meeting(start_datetime, end_datetime, target_index)
     
     def get_intersecting_availability(self, target_persons=[]):
         FMT = "%Y-%m-%d %H:%M:%S%z"
@@ -319,30 +366,32 @@ class Persons():
             target_persons = self.selected_persons
         target_persons_len = len(target_persons)
         availabilities = []
-        for i, person in enumerate(target_persons):
-            availability = person.availability
-            availabilities.append(availability)
-            print(f"Availability {i+1}/{target_persons_len} [{len(availability)}]: {availability}") if (self.print_debug == True) else False
-        intersections = availabilities[0]
-        for next_availability in availabilities[1:]:
-            this_intersections = []
-            for cid, c_start, c_end in intersections:
-                c_start_dt = datetime.strptime(c_start, FMT)
-                c_end_dt = datetime.strptime(c_end, FMT)
-                for nid, n_start, n_end in next_availability:
-                    n_start_dt = datetime.strptime(n_start, FMT)
-                    n_end_dt = datetime.strptime(n_end, FMT)
-                    start = max(c_start_dt, n_start_dt)
-                    end = min(c_end_dt, n_end_dt)
-                    if start < end:
-                        this_intersections.append([f"{cid}&{nid}", start.isoformat(sep=" "), end.isoformat(sep=" ")])
-            # Move forward with the new this_intersections
-            intersections = this_intersections
-            # Early exit if nothing overlaps anymore
-            if not intersections:
-                break
-        print(f"Availability Intersections [{len(intersections)}]: {intersections}") if (self.print_debug == True) else False
-        self.selected_intersections = []
+        intersections = []
+        if (target_persons_len > 1):
+            for i, person in enumerate(target_persons):
+                availability = person.availability
+                availabilities.append(availability)
+                print(f"Availability {i+1}/{target_persons_len} [{len(availability)}]: {availability}") if (self.print_debug == True) else False
+            intersections = availabilities[0]
+            for next_availability in availabilities[1:]:
+                this_intersections = []
+                for cid, c_start, c_end in intersections:
+                    c_start_dt = datetime.strptime(c_start, FMT)
+                    c_end_dt = datetime.strptime(c_end, FMT)
+                    for nid, n_start, n_end in next_availability:
+                        n_start_dt = datetime.strptime(n_start, FMT)
+                        n_end_dt = datetime.strptime(n_end, FMT)
+                        start = max(c_start_dt, n_start_dt)
+                        end = min(c_end_dt, n_end_dt)
+                        if start < end:
+                            this_intersections.append([f"{cid}&{nid}", start.isoformat(sep=" "), end.isoformat(sep=" ")])
+                # Move forward with the new this_intersections
+                intersections = this_intersections
+                # Early exit if nothing overlaps anymore
+                if not intersections:
+                    break
+            print(f"Availability Intersections [{len(intersections)}]: {intersections}") if (self.print_debug == True) else False
+            self.selected_intersections = []
         return intersections
         
     def _process_write_datetimes(self, source_datetimes_list, target_datetimes_working_memory, path_to_datetimes_csv="", sort_working_memory=True):
