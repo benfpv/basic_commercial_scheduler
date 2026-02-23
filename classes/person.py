@@ -354,10 +354,12 @@ class Person():
         # Write Line
         a_line = f"{self.id}, {associate_ids_str}, {start_time_utc}, {end_time_utc}, {entry}, {self.balance}\n"
         a_split = [x.strip() for x in a_line.split(",")]
-        if (a_split not in self.balance_history):
+        datetimes_only_split = a_split[0:5] # exclude balance total otherwise can duplicate entries.
+        balance_history_datetimes_only = [x[0:5] for x in self.balance_history]
+        if (a_split not in balance_history_datetimes_only):
             # Append & Write
             self.balance_history.append(a_split)
             with open(self.path_to_person_balance_history_data, "a") as f:
                 f.write(a_line)
         # Print
-        self.print_balance_history()
+        self.print_balance_history() if (self.print_debug == True) else False

@@ -25,12 +25,15 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             exit_now = self.print_current()
     
     def print_current_datetime(self):
-        print(f"Current Datetime (as of): {self.persons.current_datetime}")
+        print(f"Current Datetime (as of) [in '{self.persons.current_timezone}' timezone]: {self.persons.current_datetime}")
     def print_page_title(self, title):
         if (self.clear_console):
             os.system("cls") if (os.name == "nt") else os.system("clear")
-        print(f"==================== {title} ====================")
+        print(f"==================== HEADER ====================")
         self.print_current_datetime()
+        self.print_page_subtitle("Selected:")
+        self.persons.print_selected_persons()
+        print(f"==================== {title} ====================")
 
     def print_page_subtitle(self, subtitle):
         print(f"---------- {subtitle} ----------")
@@ -56,8 +59,6 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
         exit_now = False
         if (self.current == "mainmenu"):
             self.print_page_title("MAIN MENU")
-            self.print_page_subtitle("Selected:")
-            self.persons.print_selected_persons()
             self.print_page_subtitle("Menu:")
             user_input = self.get_userinput_index(self.mainmenu)
             if (user_input is not None):
@@ -135,10 +136,10 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "selected_print_menu"):
+            self.print_page_title("SELECTED PRINT MENU [For Selected Persons]")
             if (not self.persons.selected_persons):
                 print("WARNING: No Selected Persons to Print For. Please Search for & Select Persons First.")
             else:
-                self.print_page_title("SELECTED PRINT MENU [For Selected Persons]")
                 user_input = self.get_userinput_index(self.selected_print_menu)
                 if (user_input is not None):
                     self.current = self.selected_print_menu[user_input]
@@ -161,10 +162,10 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "selected_availability_menu"):
+            self.print_page_title("MANAGE AVAILABILITY MENU [For Selected Persons]")
             if (not self.persons.selected_persons):
                 print("WARNING: No Selected Persons to Manage Availability For. Please Search for & Select Persons First.")
             else:
-                self.print_page_title("MANAGE AVAILABILITY MENU [For Selected Persons]")
                 user_input = self.get_userinput_index(self.selected_availability_menu)
                 if (user_input is not None):
                     self.current = self.selected_availability_menu[user_input]
@@ -197,10 +198,10 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "selected_commitments_menu"):
+            self.print_page_title("MANAGE COMMITMENTS MENU [For Selected Persons]")
             if (not self.persons.selected_persons):
                 print("WARNING: No Selected Persons to Manage Commitments For. Please Search for & Select Persons First.")
             else:
-                self.print_page_title("MANAGE COMMITMENTS MENU [For Selected Persons]")
                 user_input = self.get_userinput_index(self.selected_commitments_menu)
                 if (user_input is not None):
                     self.current = self.selected_commitments_menu[user_input]
@@ -233,10 +234,10 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             self.current = "mainmenu"
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "selected_meetings_menu"):
+            self.print_page_title("MANAGE MEETINGS MENU [For Selected Persons]")
             if (not self.persons.selected_persons):
                 print("WARNING: No Selected Persons to Manage Meetings For. Please Search for & Select Persons First.")
             else:
-                self.print_page_title("MANAGE MEETINGS MENU [For Selected Persons]")
                 user_input = self.get_userinput_index(self.selected_meetings_menu)
                 if (user_input is not None):
                     self.current = self.selected_meetings_menu[user_input]
@@ -303,6 +304,7 @@ class Functions_Cmd_Ui(): # DEMO ONLY - this is <ideal design
             user_input = input("...Press Enter to Continue...")
         elif (self.current == "exit"):
             exit_now = True
+            self.print_page_title("EXIT")
             print("Exiting...")
         return exit_now
     

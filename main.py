@@ -2,7 +2,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from classes.persons import *
-from functions_cmd_ui import *
+from functions_cmd_ui_admin import *
 
 ### Parameters ###
 path_to_global_commitments_data = "data\\global_commitments.csv"
@@ -18,9 +18,9 @@ current_timezone = "America/Toronto"
 
 ### Debug ###
 # Create logic for student/teacher preferences and auto-grouping to enable auto-scheduling. Only manual input should be availability.
-# Update handling of timezones in lower level funcs?
 # Make more efficient 'creation of person' - only create if necessary? In case of many many persons.
 # Create availability - prevent past detetimes. Sort out logic for commitment -> meeting.
+# Create demo datasets/simulation.
 
 def main():
     print("============================== Create Objects ==============================")

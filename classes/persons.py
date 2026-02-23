@@ -10,7 +10,7 @@ from functions_csv import *
 from classes.person import *
 
 class Persons():
-    def __init__(self, path_to_global_commitments_data, path_to_global_meetings_data, path_to_person_data, path_to_person_availability_data, path_to_person_commitments_data, path_to_person_meetings_data, path_to_person_balance_history_data, current_timezone="UTC"):
+    def __init__(self, path_to_global_commitments_data, path_to_global_meetings_data, path_to_person_data, path_to_person_availability_data, path_to_person_commitments_data, path_to_person_meetings_data, path_to_person_balance_history_data, current_timezone=None):
         """
         Persons creates, stores, and operates on a collection of Person objects.
         Intended to be all-in-one structure containing all person objects, but only loading/writing as needed per operation.
@@ -42,7 +42,7 @@ class Persons():
         
         ### Dynamic Variables / Working Memories ###
         # Datetime
-        self.current_timezone = ZoneInfo(current_timezone)
+        self.current_timezone = ZoneInfo(current_timezone) if (current_timezone) else datetime.now().astimezone().tzinfo
         self.current_datetime = datetime.now(self.current_timezone)
         # Working Memory / Selecteds
         self.active_meetings = [] # Meetings that are currently active
@@ -565,7 +565,7 @@ class Persons():
                 if (remove_commitment):
                     person.remove_commitment(datetime_start_utc, datetime_end_utc)
                 
-                print(f"------ (return to) convert_commitments_to_meetings() ------") if (self.print_debug == True) else False
+                print(f"------ (return to) update_commitments_to_meetings() ------") if (self.print_debug == True) else False
                 print(f"- Availability (Before) {i+1}/{target_persons_len} [{len(availability)}]: {availability}") if (self.print_debug == True) else False
                 print(f"- Commitments (Before) {i+1}/{target_persons_len} [{len(commitments)}]: {commitments}") if (self.print_debug == True) else False
                 print(f"- Meetings (Before) {i+1}/{target_persons_len} [{len(meetings)}]: {meetings}") if (self.print_debug == True) else False
