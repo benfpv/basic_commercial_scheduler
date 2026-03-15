@@ -1,16 +1,14 @@
 
-import os
-import tempfile
 import difflib
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from copy import deepcopy
 
-from functions_csv import *
 from classes.person import *
+from db import database
 
 class Persons():
-    def __init__(self, path_to_global_commitments_data, path_to_global_meetings_data, path_to_person_data, path_to_person_availability_data, path_to_person_commitments_data, path_to_person_meetings_data, path_to_person_balance_history_data, current_timezone=None):
+    def __init__(self, current_timezone=None):
         """
         Persons creates, stores, and operates on a collection of Person objects.
         Intended to be all-in-one structure containing all person objects, but only loading/writing as needed per operation.
@@ -19,36 +17,62 @@ class Persons():
         - print/create/infer/save scheduling variables (e.g., availabilities, commitments, meetings)
         """
         ### Static (or LTM) Variables ###
-        # Paths
-        self.path_to_global_commitments_data = path_to_global_commitments_data
-        self.path_to_global_meetings_data = path_to_global_meetings_data
-        Person.path_to_person_data = path_to_person_data
-        Person.path_to_person_availability_data = path_to_person_availability_data
-        Person.path_to_person_commitments_data = path_to_person_commitments_data
-        Person.path_to_person_meetings_data = path_to_person_meetings_data
-        Person.path_to_person_balance_history_data = path_to_person_balance_history_data
         # Debug Outputs
         self.print_debug = False
         Person.print_debug = self.print_debug
-        # Load Global Data (e.g., Commitments, Lessons History, Balance History)
-        self.commitments = self._load_global_data(self.path_to_global_commitments_data)
-        self.meetings = self._load_global_data(self.path_to_global_meetings_data)
-        # Import Persons
-        persons_header, persons_lines_len, persons_lines = Functions_Csv.import_csv_cleaned(path_to_person_data)
-        self.person_attributes = [x for x in persons_header]
-        self.persons_len, self.persons = self._create_persons(persons_header, persons_lines_len, persons_lines)
+        # Initialise database (creates data_pilot/scheduler.db if not present)
+        database.init_db()
+        ### Global Scheduling Data (all persons, loaded from DB) ###
+        _commitment_rows = database.fetch_all(
+            """SELECT GROUP_CONCAT(cp.user_id, '&') AS ids, c.start_utc, c.end_utc
+               FROM commitments c
+               JOIN commitment_participants cp ON c.commitment_id = cp.commitment_id
+               WHERE NOT EXISTS (
+                   SELECT 1 FROM meetings m WHERE m.commitment_id = c.commitment_id
+               )
+               GROUP BY c.commitment_id
+               ORDER BY c.start_utc"""
+        )
+        self.commitments = [[r["ids"], r["start_utc"], r["end_utc"]] for r in _commitment_rows]
+        _meetings_history_rows = database.fetch_all(
+            """SELECT GROUP_CONCAT(mp.user_id, '&') AS ids, m.start_utc, m.end_utc
+               FROM meetings m
+               JOIN meeting_participants mp ON m.meeting_id = mp.meeting_id
+               GROUP BY m.meeting_id
+               ORDER BY m.start_utc"""
+        )
+        self.meetings_history = [[r["ids"], r["start_utc"], r["end_utc"]] for r in _meetings_history_rows]
+        # Import Persons from DB
+        _user_rows = database.fetch_all("SELECT * FROM users ORDER BY id")
+        persons_lines = [
+            [str(r["role"]), str(r["first_name"]), str(r["last_name"]),
+             str(r["id"]), str(r["family_id"]), str(r["date_registered"]),
+             str(r["date_of_birth"]), str(r["address"] or ""),
+             str(r["phone_number"] or ""), str(r["email"] or ""),
+             str(r["rate"]), str(r["balance"]), str(r["timezone"]),
+             str(r["comments"] or "")]
+            for r in _user_rows
+        ]
+        self.person_attributes = ["role", "first_name", "last_name", "id", "family_id",
+                                   "date_registered", "date_of_birth", "address",
+                                   "phone_number", "email", "rate", "balance",
+                                   "timezone", "comments"]
+        self.persons_len, self.persons = self._create_persons(
+            self.person_attributes, len(persons_lines), persons_lines
+        )
         # Balance Entry Modifiers (e.g., events, discounts)
         self.global_balance_entry_modifiers = [] # list of floats that will be summed up (e.g., 1.0 is regular price).
         
-        ### Dynamic Variables / Working Memories ###
+        ### Global Working Memory (computed at runtime, not persisted) ###
         # Datetime
         self.current_timezone = ZoneInfo(current_timezone) if (current_timezone) else datetime.now().astimezone().tzinfo
         self.current_datetime = datetime.now(self.current_timezone)
-        # Working Memory / Selecteds
-        self.active_meetings = [] # Meetings that are currently active
-        self.search_results = [] # one or more persons (i.e., person objects) are stored here after any search method.
-        self.selected_persons = [] # selected users are stored here as necessary so they can be operated on using inherent functions.
-        self.selected_intersections = [] # intersections working memory
+        # Global: active meetings (commitments whose window straddles now — transient, recomputed each update)
+        self.active_meetings = []
+        # Admin working memory
+        self.search_results = []
+        self.selected_persons = []
+        self.selected_intersections = []
         
     def __str__(self):
         string = f"Persons [{self.persons_len}]: {[x.first_name for x in self.persons]}"
@@ -66,7 +90,7 @@ class Persons():
         self.update_commitments_to_meetings()
     
     def _validate_user(self, items, persons):
-        print(f"------ create_persons() ------") if (self.print_debug == True) else False
+        print(f"------ _validate_user() ------") if (self.print_debug == True) else False
         errors = []
         items = {k: str(v) if v is not None else "" for k, v in items.items()}
         required_fields = ["role", "first_name", "last_name", "date_registered", "date_of_birth", "address", "phone_number", "email", "rate", "timezone"]
@@ -153,8 +177,6 @@ class Persons():
             while new_family_id in family_ids:
                 new_family_id += 1
             items["family_id"] = str(new_family_id)
-        # Print items for debugging
-        print("Items to be registered:", items)  # Add this line to print items before registration
         # Validate user information
         user_is_valid = self._validate_user(items, self.persons)
         if user_is_valid:
@@ -179,23 +201,24 @@ class Persons():
             person = Person(items_list)
             self.persons.append(person)
             self.persons_len = len(self.persons)
-            # Save to the CSV file with exact format
-            with open(Person.path_to_person_data, "a") as f:
-                f.write(", ".join(items_list) + "\n")
+            database.execute(
+                """INSERT OR IGNORE INTO users
+                   (id, role, first_name, last_name, family_id, date_registered,
+                    date_of_birth, address, phone_number, email, rate, balance,
+                    timezone, comments)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (int(items["id"]), items["role"], items["first_name"], items["last_name"],
+                 int(items.get("family_id", 0)), items["date_registered"],
+                 items["date_of_birth"], items["address"], items["phone_number"],
+                 items["email"], float(items["rate"]), float(items.get("balance", "0")),
+                 items["timezone"], items.get("comments", ""))
+            )
             if self.print_debug:
                 print(f"Person registered with ID {new_id}")
         else:
             print("WARNING: Person NOT Registered!")
         return
 
-    def _load_global_data(self, path_to_data_csv):
-        print(f"------ _load_global_data() ------") if (self.print_debug == True) else False
-        data_header, data_lines_len, data_lines = Functions_Csv.import_csv_cleaned(path_to_data_csv)
-        print(f"- data_lines: {data_lines}") if (self.print_debug == True) else False
-        id_header_index = data_header.index("id")
-        print(f"- Data {path_to_data_csv} [{data_lines_len}]: {data_lines}") if (self.print_debug == True) else False
-        return data_lines
-        
     def _sort_datetimes_by_start_datetime(self, datetimes_list):
         print(f"------ _sort_datetimes_by_start_datetime() ------") if (self.print_debug == True) else False
         start_datetime_index = 1
@@ -274,15 +297,27 @@ class Persons():
     def print_global_active_meetings(self):
         print(f"------ print_global_active_meetings() ------") if (self.print_debug == True) else False
         print(f"Global Active Meetings: [{len(self.active_meetings)}]: ")
-        [print(f"- {x}") for x in self.active_meetings]
+        if self.active_meetings:
+            [print(f"- {x}") for x in self.active_meetings]
+        else:
+            print("- (none)")
+    def get_active_meetings_for(self, person):
+        """Returns active meetings relevant to this person (filtered from global active_meetings)."""
+        return [m for m in self.active_meetings if person.id in m[0].split("&")]
     def print_global_commitments(self):
         print(f"------ print_global_commitments() ------") if (self.print_debug == True) else False
         print(f"Global Commitments [{len(self.commitments)}]: ")
-        [print(f"- {x}") for x in self.commitments]
-    def print_global_meetings(self):
-        print(f"------ print_global_meetings() ------") if (self.print_debug == True) else False
-        print(f"Global Meetings [{len(self.meetings)}]: ")
-        [print(f"- {x}") for x in self.meetings]
+        if self.commitments:
+            [print(f"- {x}") for x in self.commitments]
+        else:
+            print("- (none)")
+    def print_global_meetings_history(self):
+        print(f"------ print_global_meetings_history() ------") if (self.print_debug == True) else False
+        print(f"Global Meetings History [{len(self.meetings_history)}]: ")
+        if self.meetings_history:
+            [print(f"- {x}") for x in self.meetings_history]
+        else:
+            print("- (none)")
         
     def clear_selections(self):
         print(f"------ clear_selections() ------") if (self.print_debug == True) else False
@@ -293,7 +328,10 @@ class Persons():
     def print_selected_persons(self):
         print(f"------ print_selected_persons() ------") if (self.print_debug == True) else False
         print(f"Selected Persons [{len(self.selected_persons)}]: ")
-        [print(f"- {x}") for x in self.selected_persons]
+        if self.selected_persons:
+            [print(f"- {x}") for x in self.selected_persons]
+        else:
+            print("- (none)")
     def append_selected_person(self, person):
         print(f"------ append_selected_person() ------") if (self.print_debug == True) else False
         self.selected_persons.append(person)
@@ -307,10 +345,13 @@ class Persons():
         print(f"------ print_availability() for '{person}' ------") if (self.print_debug == True) else False
         print(person)
         print(f"Availability [{len(person.availability)}] (Timezone: {self.current_timezone}): ")
-        for x in person.availability:
-            start_datetime = datetime.strptime(x[1], FMT).astimezone(self.current_timezone)
-            end_datetime = datetime.strptime(x[2], FMT).astimezone(self.current_timezone)
-            print(f"- {start_datetime} -> {end_datetime}")
+        if person.availability:
+            for x in person.availability:
+                start_datetime = datetime.strptime(x[1], FMT).astimezone(self.current_timezone)
+                end_datetime = datetime.strptime(x[2], FMT).astimezone(self.current_timezone)
+                print(f"- {start_datetime} -> {end_datetime}")
+        else:
+            print("- (none)")
     def create_availability(self, person, start_datetime, end_datetime):
         print(f"------ create_availability() for '{person}' ------") if (self.print_debug == True) else False
         person.create_availability(start_datetime, end_datetime)
@@ -326,10 +367,13 @@ class Persons():
         print(f"------ print_commitments() for '{person}' ------") if (self.print_debug == True) else False
         print(person)
         print(f"Commitments [{len(person.commitments)}] (Timezone: {self.current_timezone}): ")
-        for x in person.commitments:
-            start_datetime = datetime.strptime(x[1], FMT).astimezone(self.current_timezone)
-            end_datetime = datetime.strptime(x[2], FMT).astimezone(self.current_timezone)
-            print(f"- {start_datetime} -> {end_datetime}")
+        if person.commitments:
+            for x in person.commitments:
+                start_datetime = datetime.strptime(x[1], FMT).astimezone(self.current_timezone)
+                end_datetime = datetime.strptime(x[2], FMT).astimezone(self.current_timezone)
+                print(f"- {start_datetime} -> {end_datetime}")
+        else:
+            print("- (none)")
     def create_commitment(self, person, start_datetime, end_datetime):
         print(f"------ create_commitment() for '{person}' ------") if (self.print_debug == True) else False
         person.create_commitment(start_datetime, end_datetime)
@@ -340,25 +384,31 @@ class Persons():
         print(f"------ remove_commitment() for '{person}' ------") if (self.print_debug == True) else False
         person.remove_commitment(start_datetime, end_datetime, target_index)
     
-    def print_meetings(self, person):
+    def print_meetings_history(self, person):
         FMT = "%Y-%m-%d %H:%M:%S%z"
-        print(f"------ print_meetings() for '{person}' ------") if (self.print_debug == True) else False
+        print(f"------ print_meetings_history() for '{person}' ------") if (self.print_debug == True) else False
         print(person)
-        print(f"Meetings [{len(person.meetings)}] (Timezone: {self.current_timezone}): ")
-        for x in person.meetings:
-            start_datetime = datetime.strptime(x[1], FMT).astimezone(self.current_timezone)
-            end_datetime = datetime.strptime(x[2], FMT).astimezone(self.current_timezone)
-            print(f"- {start_datetime} -> {end_datetime}")
+        print(f"Meetings History [{len(person.meetings_history)}] (Timezone: {self.current_timezone}): ")
+        if person.meetings_history:
+            for x in person.meetings_history:
+                start_datetime = datetime.strptime(x[1], FMT).astimezone(self.current_timezone)
+                end_datetime = datetime.strptime(x[2], FMT).astimezone(self.current_timezone)
+                print(f"- {start_datetime} -> {end_datetime}")
+        else:
+            print("- (none)")
     def create_meeting(self, person, start_datetime, end_datetime):
         print(f"------ create_meeting() for '{person}' ------") if (self.print_debug == True) else False
         person.create_meeting(start_datetime, end_datetime)
-    def get_meetings(self, person):
-        print(f"------ get_meetings() for '{person}' ------") if (self.print_debug == True) else False
-        return person.meetings
+    def get_meetings_history(self, person):
+        print(f"------ get_meetings_history() for '{person}' ------") if (self.print_debug == True) else False
+        return person.meetings_history
     def remove_meeting(self, person, start_datetime="", end_datetime="", target_index=None):
         print(f"------ remove_meeting() for '{person}' ------") if (self.print_debug == True) else False
         person.remove_meeting(start_datetime, end_datetime, target_index)
-    
+    def print_balance_history(self, person):
+        print(f"------ print_balance_history() for '{person}' ------") if (self.print_debug == True) else False
+        person.print_balance_history()
+
     def get_intersecting_availability(self, target_persons=[]):
         FMT = "%Y-%m-%d %H:%M:%S%z"
         print(f"------ get_intersecting_availability() ------") if (self.print_debug == True) else False
@@ -394,31 +444,39 @@ class Persons():
             self.selected_intersections = []
         return intersections
         
-    def _process_write_datetimes(self, source_datetimes_list, target_datetimes_working_memory, path_to_datetimes_csv="", sort_working_memory=True):
+    def _process_write_datetimes(self, source_datetimes_list, target_datetimes_working_memory, sort_working_memory=True):
         print(f"------ _process_write_datetimes() ------") if (self.print_debug == True) else False
-        ### Process Crossed-Over (Filter Out Identicals)
-        source_datetimes_list_len = len(source_datetimes_list)
         for i, this_datetime in enumerate(source_datetimes_list):
-            print(f"Datetime {i+1}/{source_datetimes_list}: {this_datetime}") if (self.print_debug == True) else False
-            a_line = f"{this_datetime[0]}, {this_datetime[1]}, {this_datetime[2]}\n"
+            print(f"Datetime {i+1}/{len(source_datetimes_list)}: {this_datetime}") if (self.print_debug == True) else False
             if (this_datetime not in target_datetimes_working_memory):
-                # Append & Write
                 target_datetimes_working_memory.append(this_datetime)
-                if (path_to_datetimes_csv):
-                    with open(path_to_datetimes_csv, "a") as f:
-                        f.write(a_line)
-                    print(f"- Global Datetime Created: {this_datetime}") if (self.print_debug == True) else False
+                print(f"- Datetime Created: {this_datetime}") if (self.print_debug == True) else False
             else:
-                if (path_to_datetimes_csv):
-                    print(f"- Global Datetime Already Exists (Not Created): {this_datetime}") if (self.print_debug == True) else False
+                print(f"- Datetime Already Exists (Not Created): {this_datetime}") if (self.print_debug == True) else False
         if (sort_working_memory):
             self._sort_datetimes_by_start_datetime(target_datetimes_working_memory)
         
     def create_intersecting_commitments(self, remove_availability=False):
         FMT = "%Y-%m-%d %H:%M:%S%z"
         print(f"------ create_intersecting_commitments() ------") if (self.print_debug == True) else False
-        # Create Global Commitments (identical to create_meeting)
-        self._process_write_datetimes(self.selected_intersections, self.commitments, self.path_to_global_commitments_data)
+        # Create Global Commitments
+        self._process_write_datetimes(self.selected_intersections, self.commitments)
+        # Sync new commitments to DB (dual-write)
+        for intersection in self.selected_intersections:
+            ids_str, start_utc, end_utc = intersection[0], intersection[1], intersection[2]
+            if not database.fetch_one(
+                "SELECT commitment_id FROM commitments WHERE start_utc=? AND end_utc=?",
+                (start_utc, end_utc)
+            ):
+                commitment_id = database.insert(
+                    "INSERT INTO commitments (start_utc, end_utc) VALUES (?,?)",
+                    (start_utc, end_utc)
+                )
+                for uid in ids_str.split("&"):
+                    database.execute(
+                        "INSERT OR IGNORE INTO commitment_participants (commitment_id, user_id) VALUES (?,?)",
+                        (commitment_id, int(uid.strip()))
+                    )
         
         # Create Person-Wise Commitments
         intersections_len = len(self.selected_intersections)
@@ -493,7 +551,7 @@ class Persons():
         print(f"------ _postprocess_meeting() ------") if (self.print_debug == True) else False
         self._create_balance_entries(meeting)
     
-    def update_commitments_to_meetings(self, remove_availability=False, remove_commitment=False):
+    def update_commitments_to_meetings(self, remove_availability=False, remove_commitment=True):
         FMT = "%Y-%m-%d %H:%M:%S%z"
         print(f"------ update_commitments_to_meetings() ------") if (self.print_debug == True) else False
         
@@ -526,11 +584,39 @@ class Persons():
         print(f"Meetings Detected Crossed-Over [{crossedover_len}]: ") if (self.print_debug == True) else False
         [print(x) for x in crossedover] if (self.print_debug == True) else False
         
-        ### Process Active Meetings (Filter Out Identicals)
+        ### Process Active Meetings (clear stale entries, then write fresh)
+        self.active_meetings.clear()
         self._process_write_datetimes(active_meetings, self.active_meetings)
         
         ### Process Crossed Over (Filter Out Identicals)
-        self._process_write_datetimes(crossedover, self.meetings, self.path_to_global_meetings_data)
+        self._process_write_datetimes(crossedover, self.meetings_history)
+        # Sync crossed-over meetings to DB (dual-write)
+        # attended=1 for all participants: consistent with current behaviour where
+        # time-crossover is the sole evidence of the meeting having occurred.
+        for crossover in crossedover:
+            ids_str, start_utc, end_utc = crossover[0], crossover[1], crossover[2]
+            if not database.fetch_one(
+                "SELECT meeting_id FROM meetings WHERE start_utc=? AND end_utc=?",
+                (start_utc, end_utc)
+            ):
+                commitment_row = database.fetch_one(
+                    "SELECT commitment_id FROM commitments WHERE start_utc=? AND end_utc=?",
+                    (start_utc, end_utc)
+                )
+                commitment_id = commitment_row["commitment_id"] if commitment_row else None
+                meeting_id = database.insert(
+                    "INSERT INTO meetings (commitment_id, start_utc, end_utc) VALUES (?,?,?)",
+                    (commitment_id, start_utc, end_utc)
+                )
+                for uid in ids_str.split("&"):
+                    database.execute(
+                        "INSERT OR IGNORE INTO meeting_participants (meeting_id, user_id, attended) VALUES (?,?,1)",
+                        (meeting_id, int(uid.strip()))
+                    )
+        
+        # Remove promoted commitments from in-memory global list
+        # (DB rows are retained as audit trail; meetings.commitment_id links back to them)
+        self.commitments[:] = [c for c in self.commitments if c not in crossedover]
         
         # Create Person-Wise Meetings
         for i, crossover in enumerate(crossedover):
@@ -556,7 +642,7 @@ class Persons():
                 
                 availability = deepcopy(person.availability)
                 commitments = deepcopy(person.commitments)
-                meetings = deepcopy(person.meetings)
+                meetings = deepcopy(person.meetings_history)
                 
                 person.create_meeting(datetime_start_utc, datetime_end_utc)
                 
@@ -572,7 +658,7 @@ class Persons():
                 
                 availability = person.availability
                 commitments = person.commitments
-                meetings = person.meetings
+                meetings = person.meetings_history
                 
                 print(f"- Availability (After) {i+1}/{target_persons_len} [{len(availability)}]: {availability}") if (self.print_debug == True) else False
                 print(f"- Commitments (After) {i+1}/{target_persons_len} [{len(commitments)}]: {commitments}") if (self.print_debug == True) else False
@@ -582,6 +668,6 @@ class Persons():
             self._postprocess_meeting(crossover)
             
         self.print_global_commitments()
-        self.print_global_meetings()
+        self.print_global_meetings_history()
         return
         

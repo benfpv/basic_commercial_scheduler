@@ -1,7 +1,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-class Functions_User_Register_Ui():
+class Functions_User_Register_Ui_Admin():
     def register_user():
         print("=== Register New User ===")
         print("Tip: Type 'cancel' at any prompt to cancel and go back.\n")

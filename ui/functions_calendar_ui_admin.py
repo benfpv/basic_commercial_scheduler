@@ -1,9 +1,9 @@
 import calendar
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 
-class Functions_Calendar_Ui:
+class Functions_Calendar_Ui_Admin:
     def __init__(self, current_datetime: datetime):
         if current_datetime.tzinfo is None:
             raise ValueError("current_datetime must be timezone-aware")
@@ -38,10 +38,10 @@ class Functions_Calendar_Ui:
     def select_timezone(self):
         common = ["UTC", "America/Toronto", "America/New_York", "Europe/London",
                   "Europe/Paris", "Asia/Tokyo", "Australia/Sydney", "America/Los_Angeles"]
-        print("\nCommon timezones:")
+        print("---------- Common Timezones ----------")
         for i, tz in enumerate(common, 1):
-            print(f" {i:2}. {tz}")
-        print(" 0. Type custom timezone")
+            print(f"  {i:2}. {tz}")
+        print("   0. Type custom timezone")
         choice = self._safe_int("Select (0 or number): ", default=0)
         if choice == 0:
             tz_str = input("Enter timezone (e.g. America/Toronto): ").strip()
@@ -49,13 +49,9 @@ class Functions_Calendar_Ui:
             tz_str = common[choice - 1]
         try:
             self.local_tz = ZoneInfo(tz_str)
-            print("--------------------------------------")
             print(f"✅ Timezone set to: {self.local_tz}")
-            print("--------------------------------------")
         except Exception:
-            print("--------------------------------------")
-            print("❌ Invalid timezone → keeping current.")
-            print("--------------------------------------")
+            print("❌ Invalid timezone — keeping current.")
             self.local_tz = self.current_datetime.tzinfo
 
     # --------------------- Calendar ---------------------
@@ -87,7 +83,7 @@ class Functions_Calendar_Ui:
                     day = int(cmd)
                     return datetime(year, month, day, tzinfo=self.local_tz)
                 except (ValueError, TypeError):
-                    print("Invalid input.")
+                    print("❌ Invalid input.")
                     continue
             if month > 12:
                 month = 1
@@ -110,7 +106,7 @@ class Functions_Calendar_Ui:
             end = self._parse_time(end_str, date)
             if end and end > start:
                 return start, end
-            print("❌ Invalid or end must be after start")
+            print("❌ End time must be after start.")
 
     # --------------------- Main function ---------------------
     def select_time_slot(self, current_datetime: datetime | None = None) -> list[tuple[datetime, datetime]]:
@@ -118,26 +114,24 @@ class Functions_Calendar_Ui:
             self.current_datetime = current_datetime
             self.local_tz = current_datetime.tzinfo
 
-        print("\n=== Time Slot Selector ===")
+        print("---------- Time Slot Selector ----------")
         self.select_timezone()
 
         slots: list[tuple[datetime, datetime]] = []
         while True:
-            print("--------------------------------------")
-            print(f"Current slots ({len(slots)}):")
+            print(f"---------- Slots [{len(slots)}] ----------")
             for i, (s, e) in enumerate(slots, 1):
-                print(f" {i}. {s:%Y-%m-%d %H:%M} → {e:%H:%M} UTC")
-            print("--------------------------------------")
-
-            action = input("a = add slot | r = remove last | c = clear all | d = done: ").strip().lower()
+                print(f"  {i}. {s:%Y-%m-%d %H:%M} → {e:%H:%M} (UTC)")
+            print("---------- Actions: a = add  |  r = remove last  |  c = clear all  |  d = done ----------")
+            action = input("> ").strip().lower()
             if action == 'd':
                 break
             elif action == 'r' and slots:
                 slots.pop()
-                print("Last slot removed.")
+                print("✅ Last slot removed.")
             elif action == 'c':
                 slots.clear()
-                print("All slots cleared.")
+                print("✅ All slots cleared.")
             elif action == 'a':
                 date = self.select_date()
                 if not date:
@@ -147,19 +141,41 @@ class Functions_Calendar_Ui:
                     start_utc = times[0].astimezone(self.utc_tz)
                     end_utc = times[1].astimezone(self.utc_tz)
                     slots.append((start_utc, end_utc))
-                    print(f"✅ Added: {start_utc} → {end_utc} (UTC)")
+                    print(f"✅ Added: {start_utc:%Y-%m-%d %H:%M} → {end_utc:%H:%M} (UTC)")
             else:
-                print("Unknown command.")
+                print("❌ Unknown command.")
 
         if not slots:
-            print("No slots selected.")
+            print("❌ No slots selected.")
             return []
 
         # ==================== CONFIRMATION ====================
-        print("\n---------- Confirm these slots? (y/n) ----------")
-        print(f"Current slots ({len(slots)}):")
+        print(f"---------- Confirm Slots [{len(slots)}] ----------")
         for i, (s, e) in enumerate(slots, 1):
-            print(f" {i}. {s:%Y-%m-%d %H:%M} → {e:%H:%M} UTC")
-        print("--------------------------------------")
+            print(f"  {i}. {s:%Y-%m-%d %H:%M} → {e:%H:%M} (UTC)")
         confirm = input("Confirm? (y/n): ").strip().lower()
-        return slots if confirm == 'y' else []
+        if confirm != 'y':
+            return []
+
+        # ==================== PROPAGATION ====================
+        print("---------- Propagate Across Future Weeks ----------")
+        print("  Enter additional weeks to repeat all slots (e.g. 3 = same slots for 3 more weeks).")
+        print("  Press Enter / 0 to skip.")
+        raw = input("  Weeks: ").strip()
+        try:
+            weeks = int(raw) if raw else 0
+        except ValueError:
+            weeks = 0
+
+        if weeks > 0:
+            base_slots = list(slots)
+            for w in range(1, weeks + 1):
+                delta = timedelta(weeks=w)
+                for s, e in base_slots:
+                    slots.append((s + delta, e + delta))
+            print(f"✅ Propagated: {len(base_slots)} slot(s) × {weeks} week(s) = {len(slots)} total.")
+            print(f"---------- All Slots [{len(slots)}] ----------")
+            for i, (s, e) in enumerate(slots, 1):
+                print(f"  {i}. {s:%Y-%m-%d %H:%M} → {e:%H:%M} (UTC)")
+
+        return slots
